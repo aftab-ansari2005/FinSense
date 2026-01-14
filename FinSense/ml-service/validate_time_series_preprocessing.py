@@ -350,6 +350,7 @@ def test_integration_readiness():
         assert str(y_sequences.dtype).startswith('float'), f"Expected float dtype, got {y_sequences.dtype}"
         
         # Check for NaN values
+        import numpy as np
         assert not any(np.isnan(X_sequences).any() for X_sequences in [X_sequences]), "X_sequences contains NaN values"
         assert not any(np.isnan(y_sequences).any() for y_sequences in [y_sequences]), "y_sequences contains NaN values"
         

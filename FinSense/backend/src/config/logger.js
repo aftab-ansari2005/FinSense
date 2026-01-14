@@ -1,5 +1,6 @@
 const winston = require('winston');
 const path = require('path');
+const { sanitizeString, sanitizeObject } = require('../utils/piiSanitizer');
 
 // Create logs directory if it doesn't exist
 const fs = require('fs');
@@ -8,22 +9,30 @@ if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir);
 }
 
-// Custom format for sanitizing PII
+// Custom format for sanitizing PII using comprehensive sanitizer
 const sanitizeFormat = winston.format((info) => {
-  // Remove or mask potential PII from log messages
+  // Sanitize message
   if (typeof info.message === 'string') {
-    // Mask email addresses
-    info.message = info.message.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL_MASKED]');
-    
-    // Mask phone numbers
-    info.message = info.message.replace(/\b\d{3}-?\d{3}-?\d{4}\b/g, '[PHONE_MASKED]');
-    
-    // Mask SSN patterns
-    info.message = info.message.replace(/\b\d{3}-?\d{2}-?\d{4}\b/g, '[SSN_MASKED]');
-    
-    // Mask credit card numbers
-    info.message = info.message.replace(/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/g, '[CARD_MASKED]');
+    info.message = sanitizeString(info.message);
   }
+  
+  // Sanitize metadata
+  if (info.meta && typeof info.meta === 'object') {
+    info.meta = sanitizeObject(info.meta);
+  }
+  
+  // Sanitize any additional properties
+  const keysToSanitize = Object.keys(info).filter(
+    key => !['level', 'timestamp', 'service'].includes(key)
+  );
+  
+  keysToSanitize.forEach(key => {
+    if (typeof info[key] === 'string') {
+      info[key] = sanitizeString(info[key]);
+    } else if (typeof info[key] === 'object' && info[key] !== null) {
+      info[key] = sanitizeObject(info[key]);
+    }
+  });
   
   return info;
 });
@@ -75,16 +84,18 @@ if (process.env.NODE_ENV !== 'production') {
   }));
 }
 
-// API logging middleware
+// API logging middleware with PII sanitization
 const apiLogger = (req, res, next) => {
   const start = Date.now();
   
-  // Log request
+  // Sanitize and log request (without sensitive data)
   logger.info('API Request', {
     method: req.method,
-    url: req.url,
+    url: sanitizeString(req.url),
+    path: sanitizeString(req.path),
     userAgent: req.get('User-Agent'),
-    ip: req.ip,
+    // IP addresses are considered PII - redact them
+    ip: '[IP_REDACTED]',
     timestamp: new Date().toISOString()
   });
   
@@ -93,7 +104,7 @@ const apiLogger = (req, res, next) => {
     const duration = Date.now() - start;
     logger.info('API Response', {
       method: req.method,
-      url: req.url,
+      url: sanitizeString(req.url),
       statusCode: res.statusCode,
       duration: `${duration}ms`,
       timestamp: new Date().toISOString()

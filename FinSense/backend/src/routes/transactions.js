@@ -752,4 +752,93 @@ router.get('/imports/:batchId', async (req, res) => {
   }
 });
 
+/**
+ * @route   GET /api/transactions/categories
+ * @desc    Get all unique categories for user's transactions
+ * @access  Private
+ */
+router.get('/categories', async (req, res) => {
+  try {
+    const categories = await Transaction.distinct('category.name', {
+      userId: req.userId,
+      'category.name': { $ne: null, $exists: true }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        categories: categories.filter(cat => cat && cat.trim() !== '')
+      }
+    });
+
+  } catch (error) {
+    logger.error('Get categories error:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve categories',
+      message: 'Internal server error'
+    });
+  }
+});
+
+/**
+ * @route   PATCH /api/transactions/:id/category
+ * @desc    Update transaction category
+ * @access  Private
+ */
+router.patch('/:id/category',
+  validationSets.objectIdParam,
+  async (req, res) => {
+    try {
+      const { category } = req.body;
+
+      if (!category || typeof category !== 'string') {
+        return res.status(400).json({
+          error: 'Invalid category',
+          message: 'Category must be a non-empty string'
+        });
+      }
+
+      const transaction = await Transaction.findOneAndUpdate(
+        { _id: req.params.id, userId: req.userId },
+        {
+          $set: {
+            'category.name': category,
+            'category.confidence': 1.0,
+            'category.isUserVerified': true
+          }
+        },
+        { new: true, runValidators: true }
+      );
+
+      if (!transaction) {
+        return res.status(404).json({
+          error: 'Transaction not found',
+          message: 'Transaction does not exist or you do not have access to it'
+        });
+      }
+
+      logger.info('Transaction category updated', {
+        userId: req.userId,
+        transactionId: transaction._id,
+        newCategory: category
+      });
+
+      res.json({
+        success: true,
+        message: 'Category updated successfully',
+        data: {
+          transaction
+        }
+      });
+
+    } catch (error) {
+      logger.error('Update category error:', error);
+      res.status(500).json({
+        error: 'Failed to update category',
+        message: 'Internal server error'
+      });
+    }
+  }
+);
+
 module.exports = router;

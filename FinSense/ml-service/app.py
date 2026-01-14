@@ -15,6 +15,20 @@ from src.services.model_storage import ModelStorageService
 from src.utils.model_versioning import ModelVersionManager
 from src.services.user_feedback_learning import UserFeedbackLearningService, UserCorrection
 
+# Import LSTM prediction services
+try:
+    from src.services.lstm_prediction_model import (
+        LSTMPredictionModel, 
+        LSTMConfig, 
+        create_lstm_model_for_financial_prediction,
+        train_financial_prediction_model
+    )
+    from src.services.time_series_preprocessing import TimeSeriesPreprocessor, TimeSeriesConfig
+    LSTM_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"LSTM prediction model not available: {e}")
+    LSTM_AVAILABLE = False
+
 # Load environment variables
 load_dotenv()
 
@@ -35,6 +49,33 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:3000", "http://localhost:5000"])
 
+# Initialize global services
+model_storage_service = None
+retraining_scheduler = None
+
+def initialize_services():
+    """Initialize global services"""
+    global model_storage_service, retraining_scheduler
+    
+    try:
+        # Initialize model storage
+        model_storage_service = ModelStorageService()
+        logger.info("Model storage service initialized")
+        
+        # Initialize retraining scheduler
+        from src.services.automated_retraining_scheduler import AutomatedRetrainingScheduler
+        retraining_scheduler = AutomatedRetrainingScheduler(model_storage_service)
+        
+        # Start the scheduler
+        retraining_scheduler.start_scheduler()
+        logger.info("Automated retraining scheduler started")
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize services: {str(e)}")
+
+# Initialize services when app starts
+initialize_services()
+
 # Configuration
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['MODEL_VERSION'] = os.getenv('MODEL_VERSION', '1.0.0')
@@ -53,12 +94,12 @@ class TransactionSchema(Schema):
     date = fields.DateTime(required=True)
     amount = fields.Float(required=True, validate=validate.Range(min=-1000000, max=1000000))
     description = fields.Str(required=True, validate=validate.Length(min=1, max=500))
-    category = fields.Str(missing=None)
+    category = fields.Str(load_default=None)
 
 class CategorizeRequestSchema(Schema):
     transactions = fields.List(fields.Nested(TransactionSchema), required=True, validate=validate.Length(min=1, max=1000))
     user_id = fields.Str(required=True)
-    model_version = fields.Str(missing=None)
+    model_version = fields.Str(load_default=None)
 
 class CategorizeResponseSchema(Schema):
     results = fields.List(fields.Dict(), required=True)
@@ -68,16 +109,35 @@ class CategorizeResponseSchema(Schema):
 
 class PredictRequestSchema(Schema):
     user_id = fields.Str(required=True)
-    transactions = fields.List(fields.Nested(TransactionSchema), required=True, validate=validate.Length(min=30))
-    prediction_days = fields.Int(missing=30, validate=validate.Range(min=1, max=365))
-    model_version = fields.Str(missing=None)
+    balance_data = fields.List(fields.Dict(), required=True, validate=validate.Length(min=30))
+    prediction_days = fields.Int(load_default=30, validate=validate.Range(min=1, max=365))
+    model_version = fields.Str(load_default=None)
+    include_confidence = fields.Bool(load_default=True)
 
 class PredictResponseSchema(Schema):
     user_id = fields.Str(required=True)
     predictions = fields.List(fields.Dict(), required=True)
-    confidence_interval = fields.Dict(required=True)
+    confidence_intervals = fields.Dict(required=True)
     model_accuracy = fields.Float(required=True)
     model_version = fields.Str(required=True)
+    prediction_dates = fields.List(fields.Date(), required=True)
+    generated_at = fields.DateTime(required=True)
+    preprocessing_stats = fields.Dict(required=True)
+
+class TrainPredictionModelRequestSchema(Schema):
+    user_id = fields.Str(required=True)
+    balance_data = fields.List(fields.Dict(), required=True, validate=validate.Length(min=90))
+    model_config = fields.Dict(load_default=None)
+    test_split = fields.Float(load_default=0.2, validate=validate.Range(min=0.1, max=0.5))
+    save_model = fields.Bool(load_default=True)
+
+class TrainPredictionModelResponseSchema(Schema):
+    user_id = fields.Str(required=True)
+    model_version = fields.Str(required=True)
+    training_stats = fields.Dict(required=True)
+    test_metrics = fields.Dict(required=True)
+    model_saved = fields.Bool(required=True)
+    training_time = fields.Float(required=True)
     generated_at = fields.DateTime(required=True)
 
 class StressScoreRequestSchema(Schema):
@@ -103,7 +163,7 @@ class UserCorrectionSchema(Schema):
     transaction_description = fields.Str(required=True)
     transaction_amount = fields.Float(required=True)
     transaction_date = fields.DateTime(required=True)
-    feedback_type = fields.Str(missing="manual_correction")
+    feedback_type = fields.Str(load_default="manual_correction")
 
 class SubmitCorrectionRequestSchema(Schema):
     corrections = fields.List(fields.Nested(UserCorrectionSchema), required=True, validate=validate.Length(min=1, max=100))
@@ -118,8 +178,8 @@ class LearningStatsResponseSchema(Schema):
     learning_effectiveness = fields.Float(required=True)
 class RetrainRequestSchema(Schema):
     model_type = fields.Str(required=True, validate=validate.OneOf(['clustering', 'prediction', 'stress']))
-    user_id = fields.Str(missing=None)
-    force_retrain = fields.Bool(missing=False)
+    user_id = fields.Str(load_default=None)
+    force_retrain = fields.Bool(load_default=False)
 
 # Initialize global feedback learning service
 global_feedback_service = UserFeedbackLearningService()
@@ -489,28 +549,743 @@ def categorize_transactions():
         }), 500
 
 @app.route('/ml/predict', methods=['POST'])
+@validate_json(PredictRequestSchema)
+@log_request
 def predict_financial_health():
-    """Financial prediction endpoint - Coming soon"""
-    return jsonify({
-        'message': 'Financial prediction - Coming soon',
-        'endpoint': '/ml/predict'
-    }), 200
+    """Generate financial balance predictions using LSTM model"""
+    if not LSTM_AVAILABLE:
+        return jsonify({
+            'error': 'LSTM prediction model not available',
+            'details': 'TensorFlow or required dependencies not installed',
+            'timestamp': datetime.utcnow().isoformat()
+        }), 503
+    
+    try:
+        data = request.validated_data
+        user_id = data['user_id']
+        balance_data = data['balance_data']
+        prediction_days = data['prediction_days']
+        model_version = data.get('model_version')
+        include_confidence = data.get('include_confidence', True)
+        
+        logger.info(f"Generating predictions for user {user_id}, {len(balance_data)} data points, {prediction_days} days ahead")
+        
+        # Convert balance data to DataFrame
+        balance_df = pd.DataFrame(balance_data)
+        
+        # Ensure required columns
+        if 'date' not in balance_df.columns or 'balance' not in balance_df.columns:
+            return jsonify({
+                'error': 'Invalid balance data format',
+                'details': 'Required columns: date, balance',
+                'timestamp': datetime.utcnow().isoformat()
+            }), 400
+        
+        # Convert date column
+        balance_df['date'] = pd.to_datetime(balance_df['date'])
+        balance_df = balance_df.sort_values('date')
+        
+        # Check if we have a trained model for this user
+        model_path = f"models/lstm_prediction_{user_id}"
+        model = None
+        
+        try:
+            # Try to load existing model
+            model = LSTMPredictionModel.load_model(model_path)
+            logger.info(f"Loaded existing LSTM model for user {user_id}")
+        except (FileNotFoundError, Exception) as e:
+            logger.info(f"No existing model found for user {user_id}, training new model: {e}")
+            
+            # Train a new model
+            try:
+                model, training_results = train_financial_prediction_model(
+                    balance_data=balance_df,
+                    user_id=user_id,
+                    test_split=0.2,
+                    model_save_path=model_path
+                )
+                logger.info(f"Successfully trained new LSTM model for user {user_id}")
+            except Exception as train_error:
+                logger.error(f"Failed to train LSTM model: {train_error}")
+                return jsonify({
+                    'error': 'Failed to train prediction model',
+                    'details': str(train_error),
+                    'timestamp': datetime.utcnow().isoformat()
+                }), 500
+        
+        # Prepare data for prediction
+        try:
+            # Use the model's preprocessor to prepare sequences
+            X_sequences, _, preprocessing_report = model.preprocessor.transform(balance_df)
+            
+            if len(X_sequences) == 0:
+                return jsonify({
+                    'error': 'Insufficient data for prediction',
+                    'details': 'Need at least sequence_length days of data',
+                    'minimum_required': model.preprocessor.config.sequence_length,
+                    'timestamp': datetime.utcnow().isoformat()
+                }), 400
+            
+            # Make predictions using the most recent sequence
+            recent_sequence = X_sequences[-1:]  # Use the most recent sequence
+            prediction_result = model.predict(
+                recent_sequence, 
+                user_id=user_id,
+                calculate_confidence=include_confidence
+            )
+            
+            # Format predictions
+            predictions = []
+            for i, (date, pred_value) in enumerate(zip(prediction_result.prediction_dates, prediction_result.predictions[0])):
+                pred_dict = {
+                    'date': date.isoformat(),
+                    'predicted_balance': float(pred_value),
+                    'day_ahead': i + 1
+                }
+                
+                # Add confidence intervals if available
+                if include_confidence and prediction_result.confidence_intervals:
+                    pred_dict.update({
+                        'confidence_lower_95': float(prediction_result.confidence_intervals['lower_95'][0][i]),
+                        'confidence_upper_95': float(prediction_result.confidence_intervals['upper_95'][0][i]),
+                        'confidence_lower_80': float(prediction_result.confidence_intervals['lower_80'][0][i]),
+                        'confidence_upper_80': float(prediction_result.confidence_intervals['upper_80'][0][i]),
+                        'prediction_std': float(prediction_result.confidence_intervals['std'][0][i])
+                    })
+                
+                predictions.append(pred_dict)
+            
+            # Format confidence intervals summary
+            confidence_summary = {}
+            if include_confidence and prediction_result.confidence_intervals:
+                confidence_summary = {
+                    'has_confidence_intervals': True,
+                    'confidence_levels': ['80%', '95%'],
+                    'mean_uncertainty': float(np.mean(prediction_result.confidence_intervals['std'])),
+                    'max_uncertainty': float(np.max(prediction_result.confidence_intervals['std']))
+                }
+            else:
+                confidence_summary = {
+                    'has_confidence_intervals': False,
+                    'reason': 'Confidence calculation disabled or failed'
+                }
+            
+            response_data = {
+                'user_id': user_id,
+                'predictions': predictions,
+                'confidence_intervals': confidence_summary,
+                'model_accuracy': prediction_result.model_accuracy,
+                'model_version': prediction_result.metadata.get('model_version', '1.0.0'),
+                'prediction_dates': [date.isoformat() for date in prediction_result.prediction_dates],
+                'generated_at': prediction_result.generated_at,
+                'preprocessing_stats': {
+                    'input_data_points': len(balance_df),
+                    'sequences_generated': len(X_sequences),
+                    'sequence_length': model.preprocessor.config.sequence_length,
+                    'prediction_horizon': prediction_days,
+                    'preprocessing_report': preprocessing_report
+                }
+            }
+            
+            logger.info(f"Successfully generated {len(predictions)} predictions for user {user_id}")
+            return jsonify(response_data), 200
+            
+        except Exception as pred_error:
+            logger.error(f"Prediction generation failed: {pred_error}")
+            return jsonify({
+                'error': 'Prediction generation failed',
+                'details': str(pred_error),
+                'timestamp': datetime.utcnow().isoformat()
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"Financial prediction failed: {str(e)}")
+        return jsonify({
+            'error': 'Financial prediction failed',
+            'details': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
+@app.route('/ml/predict/train', methods=['POST'])
+@validate_json(TrainPredictionModelRequestSchema)
+@log_request
+def train_prediction_model():
+    """Train a new LSTM prediction model for a user"""
+    if not LSTM_AVAILABLE:
+        return jsonify({
+            'error': 'LSTM prediction model not available',
+            'details': 'TensorFlow or required dependencies not installed',
+            'timestamp': datetime.utcnow().isoformat()
+        }), 503
+    
+    try:
+        data = request.validated_data
+        user_id = data['user_id']
+        balance_data = data['balance_data']
+        model_config = data.get('model_config', {})
+        test_split = data['test_split']
+        save_model = data['save_model']
+        
+        logger.info(f"Training LSTM prediction model for user {user_id} with {len(balance_data)} data points")
+        
+        # Convert balance data to DataFrame
+        balance_df = pd.DataFrame(balance_data)
+        
+        # Ensure required columns
+        if 'date' not in balance_df.columns or 'balance' not in balance_df.columns:
+            return jsonify({
+                'error': 'Invalid balance data format',
+                'details': 'Required columns: date, balance',
+                'timestamp': datetime.utcnow().isoformat()
+            }), 400
+        
+        # Convert date column and sort
+        balance_df['date'] = pd.to_datetime(balance_df['date'])
+        balance_df = balance_df.sort_values('date')
+        
+        # Validate data sufficiency
+        if len(balance_df) < 90:
+            return jsonify({
+                'error': 'Insufficient data for training',
+                'details': 'Need at least 90 days of balance data',
+                'provided': len(balance_df),
+                'timestamp': datetime.utcnow().isoformat()
+            }), 400
+        
+        start_time = datetime.utcnow()
+        
+        # Prepare model save path
+        model_path = f"models/lstm_prediction_{user_id}" if save_model else None
+        
+        try:
+            # Train the model
+            trained_model, training_results = train_financial_prediction_model(
+                balance_data=balance_df,
+                user_id=user_id,
+                test_split=test_split,
+                model_save_path=model_path
+            )
+            
+            training_time = (datetime.utcnow() - start_time).total_seconds()
+            
+            # Generate model version
+            model_version = f"lstm_v{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            
+            response_data = {
+                'user_id': user_id,
+                'model_version': model_version,
+                'training_stats': training_results['training_stats'],
+                'test_metrics': training_results['test_metrics'],
+                'model_saved': save_model and model_path is not None,
+                'training_time': training_time,
+                'generated_at': datetime.utcnow()
+            }
+            
+            logger.info(f"Successfully trained LSTM model for user {user_id} in {training_time:.2f}s")
+            return jsonify(response_data), 200
+            
+        except Exception as train_error:
+            logger.error(f"Model training failed: {train_error}")
+            return jsonify({
+                'error': 'Model training failed',
+                'details': str(train_error),
+                'timestamp': datetime.utcnow().isoformat()
+            }), 500
+        
+    except Exception as e:
+        logger.error(f"Training request failed: {str(e)}")
+        return jsonify({
+            'error': 'Training request failed',
+            'details': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
 
 @app.route('/ml/stress-score', methods=['POST'])
+@validate_json(StressScoreRequestSchema)
+@format_response(StressScoreResponseSchema)
+@log_request
 def calculate_stress_score():
-    """Financial stress score calculation - Coming soon"""
-    return jsonify({
-        'message': 'Stress score calculation - Coming soon',
-        'endpoint': '/ml/stress-score'
-    }), 200
+    """Calculate financial stress score with enhanced alerts and recommendations"""
+    try:
+        data = request.validated_data
+        user_id = data['user_id']
+        current_balance = data['current_balance']
+        predictions = data['predictions']
+        transaction_history = data['transaction_history']
+        
+        logger.info(f"Calculating stress score for user {user_id}")
+        
+        # Import the enhanced alert and recommendation system
+        from src.services.alert_recommendation_system import AlertRecommendationSystem
+        
+        # Initialize enhanced system
+        alert_system = AlertRecommendationSystem()
+        
+        # Process comprehensive financial analysis
+        analysis_result = alert_system.process_financial_analysis(
+            user_id=user_id,
+            current_balance=current_balance,
+            predictions=predictions,
+            transaction_history=transaction_history
+        )
+        
+        # Extract stress result from analysis
+        stress_result = analysis_result['stress_result']
+        
+        # Prepare enhanced response data
+        response_data = {
+            'user_id': stress_result['user_id'],
+            'stress_score': stress_result['stress_score'],
+            'risk_level': stress_result['risk_level'],
+            'factors': stress_result['factors'],
+            'recommendations': analysis_result['recommendations'],
+            'calculated_at': stress_result['calculated_at'],
+            'alerts': analysis_result['alerts'],
+            'metrics': stress_result['metrics'],
+            'alert_summary': analysis_result['alert_summary'],
+            'recommendation_summary': analysis_result['recommendation_summary']
+        }
+        
+        logger.info(f"Enhanced stress analysis completed: {stress_result['stress_score']:.1f} ({stress_result['risk_level']})")
+        logger.info(f"Generated {len(analysis_result['alerts'])} alerts and {len(analysis_result['recommendations'])} recommendations")
+        
+        return response_data, 200
+        
+    except Exception as e:
+        logger.error(f"Stress score calculation failed: {str(e)}")
+        return jsonify({
+            'error': 'Stress score calculation failed',
+            'details': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
 
 @app.route('/ml/retrain', methods=['POST'])
 def retrain_models():
-    """Model retraining endpoint - Coming soon"""
-    return jsonify({
-        'message': 'Model retraining - Coming soon',
-        'endpoint': '/ml/retrain'
-    }), 200
+    """Model retraining endpoint"""
+    try:
+        # Validate request data
+        schema = RetrainRequestSchema()
+        data = schema.load(request.json or {})
+        
+        model_type = data['model_type']
+        user_id = data.get('user_id')
+        force_retrain = data.get('force_retrain', False)
+        
+        logger.info(f"Retraining request for {model_type} (force: {force_retrain})")
+        
+        # Get the retraining scheduler
+        from src.services.automated_retraining_scheduler import AutomatedRetrainingScheduler
+        from src.services.model_storage import ModelStorageService
+        
+        # Initialize services if not already done
+        model_storage = ModelStorageService()
+        scheduler = AutomatedRetrainingScheduler(model_storage)
+        
+        # Check if retraining is needed (unless forced)
+        reasons = []
+        if force_retrain:
+            reasons = ["Manual retraining requested"]
+        else:
+            from src.utils.model_versioning import ModelVersionManager
+            version_manager = ModelVersionManager(model_storage)
+            
+            should_retrain, reasons = version_manager.should_retrain_model(model_type)
+            
+            if not should_retrain:
+                return jsonify({
+                    'success': False,
+                    'message': 'Retraining not needed based on current criteria',
+                    'model_type': model_type,
+                    'criteria_checked': True,
+                    'reasons': reasons
+                }), 200
+        
+        # Trigger retraining
+        job_id = scheduler.trigger_retraining(
+            model_type=model_type,
+            trigger_type="manual",
+            reasons=reasons,
+            user_id=user_id
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': f'Retraining job triggered for {model_type}',
+            'job_id': job_id,
+            'model_type': model_type,
+            'trigger_type': 'manual',
+            'reasons': reasons
+        }), 200
+        
+    except ValidationError as e:
+        logger.error(f"Validation error in retrain endpoint: {e.messages}")
+        return jsonify({
+            'error': 'Validation failed',
+            'details': e.messages
+        }), 400
+        
+    except Exception as e:
+        logger.error(f"Error in retrain endpoint: {str(e)}")
+        return jsonify({
+            'error': 'Retraining failed',
+            'message': str(e)
+        }), 500
+
+@app.route('/ml/retrain/status/<job_id>', methods=['GET'])
+def get_retraining_job_status(job_id):
+    """Get status of a specific retraining job"""
+    try:
+        from src.services.automated_retraining_scheduler import AutomatedRetrainingScheduler
+        from src.services.model_storage import ModelStorageService
+        
+        model_storage = ModelStorageService()
+        scheduler = AutomatedRetrainingScheduler(model_storage)
+        
+        job_status = scheduler.get_job_status(job_id)
+        
+        if not job_status:
+            return jsonify({
+                'error': 'Job not found',
+                'job_id': job_id
+            }), 404
+        
+        return jsonify({
+            'success': True,
+            'job': job_status
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting job status: {str(e)}")
+        return jsonify({
+            'error': 'Failed to get job status',
+            'message': str(e)
+        }), 500
+
+@app.route('/ml/retrain/jobs', methods=['GET'])
+def get_retraining_jobs():
+    """Get recent retraining jobs"""
+    try:
+        limit = request.args.get('limit', 10, type=int)
+        
+        from src.services.automated_retraining_scheduler import AutomatedRetrainingScheduler
+        from src.services.model_storage import ModelStorageService
+        
+        model_storage = ModelStorageService()
+        scheduler = AutomatedRetrainingScheduler(model_storage)
+        
+        jobs = scheduler.get_recent_jobs(limit)
+        
+        return jsonify({
+            'success': True,
+            'jobs': jobs,
+            'total': len(jobs)
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting retraining jobs: {str(e)}")
+        return jsonify({
+            'error': 'Failed to get retraining jobs',
+            'message': str(e)
+        }), 500
+
+@app.route('/ml/retrain/scheduler/status', methods=['GET'])
+def get_scheduler_status():
+    """Get retraining scheduler status"""
+    try:
+        from src.services.automated_retraining_scheduler import AutomatedRetrainingScheduler
+        from src.services.model_storage import ModelStorageService
+        
+        model_storage = ModelStorageService()
+        scheduler = AutomatedRetrainingScheduler(model_storage)
+        
+        status = scheduler.get_scheduler_status()
+        
+        return jsonify({
+            'success': True,
+            'scheduler': status
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting scheduler status: {str(e)}")
+        return jsonify({
+            'error': 'Failed to get scheduler status',
+            'message': str(e)
+        }), 500
+
+@app.route('/ml/retrain/config', methods=['GET'])
+def get_retraining_config():
+    """Get retraining configuration"""
+    try:
+        model_type = request.args.get('model_type')
+        
+        from src.services.automated_retraining_scheduler import AutomatedRetrainingScheduler
+        from src.services.model_storage import ModelStorageService
+        
+        model_storage = ModelStorageService()
+        scheduler = AutomatedRetrainingScheduler(model_storage)
+        
+        config = scheduler.get_config(model_type)
+        
+        return jsonify({
+            'success': True,
+            'config': config
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting retraining config: {str(e)}")
+        return jsonify({
+            'error': 'Failed to get retraining config',
+            'message': str(e)
+        }), 500
+
+@app.route('/ml/retrain/config/<model_type>', methods=['PUT'])
+def update_retraining_config(model_type):
+    """Update retraining configuration for a model type"""
+    try:
+        config_updates = request.json or {}
+        
+        from src.services.automated_retraining_scheduler import AutomatedRetrainingScheduler
+        from src.services.model_storage import ModelStorageService
+        
+        model_storage = ModelStorageService()
+        scheduler = AutomatedRetrainingScheduler(model_storage)
+        
+        scheduler.update_config(model_type, config_updates)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Configuration updated for {model_type}',
+            'model_type': model_type
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error updating retraining config: {str(e)}")
+        return jsonify({
+            'error': 'Failed to update retraining config',
+            'message': str(e)
+        }), 500
+
+# Alert and Recommendation Management Endpoints
+
+@app.route('/ml/alerts/<user_id>', methods=['GET'])
+@log_request
+def get_user_alerts(user_id):
+    """Get active alerts for a user"""
+    try:
+        from src.services.alert_recommendation_system import AlertRecommendationSystem
+        
+        alert_system = AlertRecommendationSystem()
+        active_alerts = alert_system.get_active_alerts(user_id)
+        
+        return jsonify({
+            'user_id': user_id,
+            'active_alerts': active_alerts,
+            'total_count': len(active_alerts),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Failed to get user alerts: {str(e)}")
+        return jsonify({
+            'error': 'Failed to get user alerts',
+            'details': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
+@app.route('/ml/alerts/<user_id>/<alert_id>/acknowledge', methods=['POST'])
+@log_request
+def acknowledge_alert(user_id, alert_id):
+    """Acknowledge a specific alert"""
+    try:
+        from src.services.alert_recommendation_system import AlertRecommendationSystem
+        
+        alert_system = AlertRecommendationSystem()
+        success = alert_system.acknowledge_alert(user_id, alert_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Alert acknowledged successfully',
+                'alert_id': alert_id,
+                'timestamp': datetime.utcnow().isoformat()
+            }), 200
+        else:
+            return jsonify({
+                'error': 'Alert not found or already acknowledged',
+                'alert_id': alert_id,
+                'timestamp': datetime.utcnow().isoformat()
+            }), 404
+            
+    except Exception as e:
+        logger.error(f"Failed to acknowledge alert: {str(e)}")
+        return jsonify({
+            'error': 'Failed to acknowledge alert',
+            'details': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
+@app.route('/ml/recommendations/<user_id>', methods=['GET'])
+@log_request
+def get_user_recommendations(user_id):
+    """Get recommendation status for a user"""
+    try:
+        from src.services.alert_recommendation_system import AlertRecommendationSystem
+        
+        alert_system = AlertRecommendationSystem()
+        recommendations = alert_system.get_recommendation_status(user_id)
+        
+        return jsonify({
+            'user_id': user_id,
+            'recommendations': recommendations,
+            'total_count': len(recommendations),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Failed to get user recommendations: {str(e)}")
+        return jsonify({
+            'error': 'Failed to get user recommendations',
+            'details': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
+@app.route('/ml/recommendations/<user_id>/<recommendation_id>/status', methods=['PUT'])
+@log_request
+def update_recommendation_status(user_id, recommendation_id):
+    """Update recommendation progress status"""
+    try:
+        data = request.get_json() or {}
+        status = data.get('status')
+        progress_note = data.get('progress_note')
+        
+        if not status:
+            return jsonify({
+                'error': 'Status is required',
+                'valid_statuses': ['pending', 'in_progress', 'completed', 'dismissed']
+            }), 400
+        
+        from src.services.alert_recommendation_system import AlertRecommendationSystem
+        
+        alert_system = AlertRecommendationSystem()
+        success = alert_system.update_recommendation_status(
+            user_id, recommendation_id, status, progress_note
+        )
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Recommendation status updated successfully',
+                'recommendation_id': recommendation_id,
+                'new_status': status,
+                'timestamp': datetime.utcnow().isoformat()
+            }), 200
+        else:
+            return jsonify({
+                'error': 'Recommendation not found',
+                'recommendation_id': recommendation_id,
+                'timestamp': datetime.utcnow().isoformat()
+            }), 404
+            
+    except Exception as e:
+        logger.error(f"Failed to update recommendation status: {str(e)}")
+        return jsonify({
+            'error': 'Failed to update recommendation status',
+            'details': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
+@app.route('/ml/alerts/<user_id>/preferences', methods=['GET', 'POST'])
+@log_request
+def manage_alert_preferences(user_id):
+    """Get or set alert preferences for a user"""
+    try:
+        from src.services.alert_recommendation_system import (
+            AlertRecommendationSystem, 
+            UserAlertPreferences, 
+            NotificationChannel
+        )
+        
+        alert_system = AlertRecommendationSystem()
+        
+        if request.method == 'GET':
+            # Get current preferences
+            preferences = alert_system.get_user_preferences(user_id)
+            return jsonify({
+                'user_id': user_id,
+                'preferences': preferences.to_dict(),
+                'timestamp': datetime.utcnow().isoformat()
+            }), 200
+            
+        elif request.method == 'POST':
+            # Update preferences
+            data = request.get_json() or {}
+            
+            # Parse notification channels
+            enabled_channels = []
+            for channel_name in data.get('enabled_channels', ['dashboard']):
+                try:
+                    enabled_channels.append(NotificationChannel(channel_name))
+                except ValueError:
+                    continue
+            
+            preferences = UserAlertPreferences(
+                user_id=user_id,
+                enabled_channels=enabled_channels,
+                quiet_hours_start=data.get('quiet_hours_start', 22),
+                quiet_hours_end=data.get('quiet_hours_end', 8),
+                max_alerts_per_day=data.get('max_alerts_per_day', 5),
+                custom_thresholds=data.get('custom_thresholds', {})
+            )
+            
+            success = alert_system.set_user_preferences(preferences)
+            
+            if success:
+                return jsonify({
+                    'success': True,
+                    'message': 'Alert preferences updated successfully',
+                    'preferences': preferences.to_dict(),
+                    'timestamp': datetime.utcnow().isoformat()
+                }), 200
+            else:
+                return jsonify({
+                    'error': 'Failed to update preferences',
+                    'timestamp': datetime.utcnow().isoformat()
+                }), 500
+                
+    except Exception as e:
+        logger.error(f"Failed to manage alert preferences: {str(e)}")
+        return jsonify({
+            'error': 'Failed to manage alert preferences',
+            'details': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
+@app.route('/ml/alerts/<user_id>/statistics', methods=['GET'])
+@log_request
+def get_alert_statistics(user_id):
+    """Get alert statistics for a user"""
+    try:
+        days = int(request.args.get('days', 30))
+        
+        from src.services.alert_recommendation_system import AlertRecommendationSystem
+        
+        alert_system = AlertRecommendationSystem()
+        stats = alert_system.get_alert_statistics(user_id, days)
+        
+        return jsonify({
+            'user_id': user_id,
+            'period_days': days,
+            'statistics': stats,
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Failed to get alert statistics: {str(e)}")
+        return jsonify({
+            'error': 'Failed to get alert statistics',
+            'details': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
 
 # Model management endpoints
 @app.route('/ml/models', methods=['GET'])

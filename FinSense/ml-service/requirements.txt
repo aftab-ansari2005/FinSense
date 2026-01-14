@@ -10,3 +10,6 @@ pytest==7.4.3
 hypothesis==6.92.1
 requests==2.31.0
 gunicorn==21.2.0
+marshmallow==3.20.1
+schedule==1.2.0
+packaging==23.2

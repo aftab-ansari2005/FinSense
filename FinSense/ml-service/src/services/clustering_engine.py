@@ -20,9 +20,21 @@ from collections import Counter
 import joblib
 import re
 
-from .feature_extraction import TransactionFeatureExtractor
-from ..utils.preprocessing_pipeline import TransactionPreprocessingPipeline
-from .user_feedback_learning import UserFeedbackLearningService, UserCorrection
+try:
+    from .feature_extraction import TransactionFeatureExtractor
+    from ..utils.preprocessing_pipeline import TransactionPreprocessingPipeline
+    from .user_feedback_learning import UserFeedbackLearningService, UserCorrection
+except ImportError:
+    # Fallback for direct execution
+    try:
+        from services.feature_extraction import TransactionFeatureExtractor
+        from utils.preprocessing_pipeline import TransactionPreprocessingPipeline
+        from services.user_feedback_learning import UserFeedbackLearningService, UserCorrection
+    except ImportError:
+        # If preprocessing pipeline is not available, we'll handle it later
+        from services.feature_extraction import TransactionFeatureExtractor
+        from services.user_feedback_learning import UserFeedbackLearningService, UserCorrection
+        TransactionPreprocessingPipeline = None
 
 logger = logging.getLogger(__name__)
 
