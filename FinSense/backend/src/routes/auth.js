@@ -1,6 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { validationSets } = require('../config/validation');
+const { validationSets, validationRules, handleValidationErrors } = require('../config/validation');
 const { authenticateToken } = require('../middleware/auth');
 const authService = require('../services/authService');
 const { logger } = require('../config/logger');
@@ -246,9 +246,9 @@ router.put('/profile', authenticateToken, validationSets.userProfileUpdate, asyn
  * @access  Private
  */
 router.post('/change-password', authenticateToken, [
-  validationSets.validationRules.password.withMessage('New password must be at least 8 characters with uppercase, lowercase, and number'),
+  validationRules.password.withMessage('New password must be at least 8 characters with uppercase, lowercase, and number'),
   require('express-validator').body('currentPassword').notEmpty().withMessage('Current password is required'),
-  validationSets.handleValidationErrors
+  handleValidationErrors
 ], async (req, res) => {
   try {
     const { currentPassword, password: newPassword } = req.body;
@@ -282,8 +282,8 @@ router.post('/change-password', authenticateToken, [
  * @access  Public
  */
 router.post('/forgot-password', passwordResetLimiter, [
-  validationSets.validationRules.email,
-  validationSets.handleValidationErrors
+  validationRules.email,
+  handleValidationErrors
 ], async (req, res) => {
   try {
     const { email } = req.body;
@@ -312,8 +312,8 @@ router.post('/forgot-password', passwordResetLimiter, [
  */
 router.post('/reset-password', [
   require('express-validator').body('resetToken').notEmpty().withMessage('Reset token is required'),
-  validationSets.validationRules.password,
-  validationSets.handleValidationErrors
+  validationRules.password,
+  handleValidationErrors
 ], async (req, res) => {
   try {
     const { resetToken, password } = req.body;
@@ -348,7 +348,7 @@ router.post('/reset-password', [
  */
 router.post('/verify-email', [
   require('express-validator').body('token').notEmpty().withMessage('Verification token is required'),
-  validationSets.handleValidationErrors
+  handleValidationErrors
 ], async (req, res) => {
   try {
     const { token } = req.body;

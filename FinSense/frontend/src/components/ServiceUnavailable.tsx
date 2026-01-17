@@ -1,5 +1,5 @@
 import React from 'react';
-import { ServiceStatus } from '@/services/serviceHealth.service';
+import { ServiceStatus } from '../services/serviceHealth.service';
 
 interface ServiceUnavailableProps {
   services?: ServiceStatus[];

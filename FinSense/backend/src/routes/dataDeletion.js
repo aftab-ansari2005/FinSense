@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate } = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const dataDeletionService = require('../services/dataDeletionService');
 const { logger } = require('../config/logger');
 
@@ -9,7 +9,7 @@ const { logger } = require('../config/logger');
  * @desc    Get deletion statistics and options for the authenticated user
  * @access  Private
  */
-router.get('/statistics', authenticate, async (req, res) => {
+router.get('/statistics', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const statistics = await dataDeletionService.getDeletionStatistics(userId);
@@ -33,7 +33,7 @@ router.get('/statistics', authenticate, async (req, res) => {
  * @desc    Preview what data will be deleted
  * @access  Private
  */
-router.get('/preview', authenticate, async (req, res) => {
+router.get('/preview', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const preview = await dataDeletionService.previewDeletion(userId);
@@ -57,7 +57,7 @@ router.get('/preview', authenticate, async (req, res) => {
  * @desc    Request a data deletion with confirmation token
  * @access  Private
  */
-router.post('/request', authenticate, async (req, res) => {
+router.post('/request', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { deletionType } = req.body;
@@ -91,7 +91,7 @@ router.post('/request', authenticate, async (req, res) => {
  * @desc    Delete entire user account and all associated data
  * @access  Private
  */
-router.delete('/account', authenticate, async (req, res) => {
+router.delete('/account', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { confirmation } = req.body;
@@ -126,7 +126,7 @@ router.delete('/account', authenticate, async (req, res) => {
  * @desc    Delete all transactions for the authenticated user
  * @access  Private
  */
-router.delete('/transactions', authenticate, async (req, res) => {
+router.delete('/transactions', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { startDate, endDate } = req.query;
@@ -164,7 +164,7 @@ router.delete('/transactions', authenticate, async (req, res) => {
  * @desc    Delete all predictions for the authenticated user
  * @access  Private
  */
-router.delete('/predictions', authenticate, async (req, res) => {
+router.delete('/predictions', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const result = await dataDeletionService.deletePredictions(userId);
@@ -189,7 +189,7 @@ router.delete('/predictions', authenticate, async (req, res) => {
  * @desc    Delete all financial stress records for the authenticated user
  * @access  Private
  */
-router.delete('/stress', authenticate, async (req, res) => {
+router.delete('/stress', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const result = await dataDeletionService.deleteFinancialStressRecords(userId);

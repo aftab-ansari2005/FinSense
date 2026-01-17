@@ -130,7 +130,7 @@ const PredictionsPage: React.FC = () => {
               </span>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-0.5 bg-blue-500 border-dashed border-t-2 border-blue-500"></div>
+              <div className="w-8 h-0.5 bg-blue-500" style={{ borderTop: '3px dashed #3b82f6', backgroundColor: 'transparent' }}></div>
               <span className="text-gray-600">
                 <span className="font-semibold">Predicted Balance:</span> AI-generated forecast
               </span>

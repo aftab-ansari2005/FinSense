@@ -1,5 +1,5 @@
 import React from 'react';
-import { Transaction } from '@/types/transaction.types';
+import { Transaction } from '../types/transaction.types';
 
 interface RecentTransactionsProps {
   transactions: Transaction[];

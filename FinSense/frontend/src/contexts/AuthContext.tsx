@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AuthContextType, User, LoginCredentials, RegisterData } from '@/types/auth.types';
-import authService from '@/services/auth.service';
+import { AuthContextType, User, LoginCredentials, RegisterData } from '../types/auth.types';
+import authService from '../services/auth.service';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -17,27 +17,42 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Check if user is already authenticated on mount
-    const initAuth = async () => {
-      try {
-        if (authService.isAuthenticated()) {
-          const currentUser = await authService.getCurrentUser();
-          setUser(currentUser);
-        }
-      } catch (error) {
-        console.error('Failed to initialize auth:', error);
-        authService.logout();
-      } finally {
-        setIsLoading(false);
+  // TEMPORARY: Mock user for testing without authentication
+  const mockUser = {
+    id: 'test-user-123',
+    email: 'test@example.com',
+    profile: {
+      firstName: 'Test',
+      lastName: 'User',
+      preferences: {
+        currency: 'USD',
+        alertThreshold: 0.8
       }
-    };
+    }
+  };
 
-    initAuth();
-  }, []);
+  const [user, setUser] = useState<User | null>(mockUser);
+  const [isLoading, setIsLoading] = useState(false); // Set to false for immediate access
+
+  // TEMPORARY: Commented out real auth initialization
+  // useEffect(() => {
+  //   // Check if user is already authenticated on mount
+  //   const initAuth = async () => {
+  //     try {
+  //       if (authService.isAuthenticated()) {
+  //         const currentUser = await authService.getCurrentUser();
+  //         setUser(currentUser);
+  //       }
+  //     } catch (error) {
+  //       console.error('Failed to initialize auth:', error);
+  //       authService.logout();
+  //     } finally {
+  //       setIsLoading(false);
+  //     }
+  //   };
+
+  //   initAuth();
+  // }, []);
 
   const login = async (credentials: LoginCredentials) => {
     setIsLoading(true);

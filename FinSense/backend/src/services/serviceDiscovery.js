@@ -343,6 +343,14 @@ class ServiceDiscovery {
 
   // Auto-discovery from environment variables or configuration
   autoDiscoverInstances() {
+    // Check if ML service is enabled
+    const mlServiceEnabled = process.env.ML_SERVICE_ENABLED !== 'false';
+    
+    if (!mlServiceEnabled) {
+      logger.info('ML service is disabled, skipping service discovery');
+      return;
+    }
+    
     const mlServiceUrls = process.env.ML_SERVICE_URLS;
     
     if (mlServiceUrls) {

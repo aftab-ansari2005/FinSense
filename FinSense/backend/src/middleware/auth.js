@@ -6,6 +6,25 @@ const { User } = require('../models');
  * JWT Authentication Middleware
  */
 const authenticateToken = async (req, res, next) => {
+  // TEMPORARY: Skip authentication for testing
+  if (process.env.NODE_ENV === 'development' && process.env.SKIP_AUTH === 'true') {
+    // Mock user for testing - using the actual user ID from database
+    const mongoose = require('mongoose');
+    const mockUserId = new mongoose.Types.ObjectId('696bc158153cde9b1edaae70');
+    
+    req.user = {
+      _id: mockUserId,
+      email: 'test@example.com',
+      profile: {
+        firstName: 'Test',
+        lastName: 'User'
+      },
+      isActive: true
+    };
+    req.userId = mockUserId;
+    return next();
+  }
+
   try {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN

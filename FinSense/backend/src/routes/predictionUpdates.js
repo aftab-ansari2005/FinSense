@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate } = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const { getPredictionUpdateScheduler } = require('../services/predictionUpdateScheduler');
 const { logger } = require('../config/logger');
 
@@ -9,7 +9,7 @@ const { logger } = require('../config/logger');
  * @desc    Manually trigger prediction update for authenticated user
  * @access  Private
  */
-router.post('/trigger', authenticate, async (req, res) => {
+router.post('/trigger', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const scheduler = getPredictionUpdateScheduler();
@@ -50,7 +50,7 @@ router.post('/trigger', authenticate, async (req, res) => {
  * @desc    Get prediction update scheduler statistics
  * @access  Private
  */
-router.get('/statistics', authenticate, async (req, res) => {
+router.get('/statistics', authenticateToken, async (req, res) => {
   try {
     const scheduler = getPredictionUpdateScheduler();
     const stats = scheduler.getStatistics();
@@ -74,7 +74,7 @@ router.get('/statistics', authenticate, async (req, res) => {
  * @desc    Reset prediction update statistics (admin only)
  * @access  Private
  */
-router.post('/reset-statistics', authenticate, async (req, res) => {
+router.post('/reset-statistics', authenticateToken, async (req, res) => {
   try {
     const scheduler = getPredictionUpdateScheduler();
     scheduler.resetStatistics();
@@ -100,7 +100,7 @@ router.post('/reset-statistics', authenticate, async (req, res) => {
  * @desc    Get scheduler status
  * @access  Private
  */
-router.get('/status', authenticate, async (req, res) => {
+router.get('/status', authenticateToken, async (req, res) => {
   try {
     const scheduler = getPredictionUpdateScheduler();
     const stats = scheduler.getStatistics();

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate } = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const dataExportService = require('../services/dataExportService');
 const { logger } = require('../config/logger');
 
@@ -9,7 +9,7 @@ const { logger } = require('../config/logger');
  * @desc    Get export statistics for the authenticated user
  * @access  Private
  */
-router.get('/statistics', authenticate, async (req, res) => {
+router.get('/statistics', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const statistics = await dataExportService.getExportStatistics(userId);
@@ -33,7 +33,7 @@ router.get('/statistics', authenticate, async (req, res) => {
  * @desc    Export all user data in JSON format
  * @access  Private
  */
-router.get('/json', authenticate, async (req, res) => {
+router.get('/json', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const exportData = await dataExportService.exportUserDataJSON(userId);
@@ -58,7 +58,7 @@ router.get('/json', authenticate, async (req, res) => {
  * @desc    Export user transactions in CSV format
  * @access  Private
  */
-router.get('/csv/transactions', authenticate, async (req, res) => {
+router.get('/csv/transactions', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const csv = await dataExportService.exportTransactionsCSV(userId);
@@ -83,7 +83,7 @@ router.get('/csv/transactions', authenticate, async (req, res) => {
  * @desc    Export user predictions in CSV format
  * @access  Private
  */
-router.get('/csv/predictions', authenticate, async (req, res) => {
+router.get('/csv/predictions', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const csv = await dataExportService.exportPredictionsCSV(userId);
@@ -108,7 +108,7 @@ router.get('/csv/predictions', authenticate, async (req, res) => {
  * @desc    Export complete data package (JSON + CSV)
  * @access  Private
  */
-router.get('/complete', authenticate, async (req, res) => {
+router.get('/complete', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const exportPackage = await dataExportService.exportCompleteDataPackage(userId);
@@ -133,7 +133,7 @@ router.get('/complete', authenticate, async (req, res) => {
  * @desc    Request a data export (for async processing in future)
  * @access  Private
  */
-router.post('/request', authenticate, async (req, res) => {
+router.post('/request', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { format, includeTransactions, includePredictions } = req.body;

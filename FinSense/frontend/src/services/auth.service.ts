@@ -1,5 +1,5 @@
 import api from './api.service';
-import { LoginCredentials, RegisterData, AuthTokens, User } from '@/types/auth.types';
+import { LoginCredentials, RegisterData, AuthTokens, User } from '../types/auth.types';
 
 class AuthService {
   async login(credentials: LoginCredentials): Promise<{ user: User; tokens: AuthTokens }> {

@@ -1,5 +1,5 @@
 import api from './api.service';
-import { UploadResponse, UploadValidationResult, UploadProgress } from '@/types/transaction.types';
+import { UploadResponse, UploadValidationResult, UploadProgress } from '../types/transaction.types';
 
 class TransactionService {
   /**

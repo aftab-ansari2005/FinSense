@@ -94,6 +94,7 @@ class FallbackDataService {
     return {
       balance_data: [],
       transactions: [],
+      predictions: [],
       stress_score: null,
       recommendations: [],
       alerts: [],

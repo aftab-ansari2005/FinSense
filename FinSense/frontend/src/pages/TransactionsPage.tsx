@@ -4,7 +4,7 @@ import transactionsService, {
   Transaction,
   TransactionFilters,
   PaginatedTransactions,
-} from '@/services/transactions.service';
+} from '../services/transactions.service';
 
 const TransactionsPage: React.FC = () => {
   const navigate = useNavigate();

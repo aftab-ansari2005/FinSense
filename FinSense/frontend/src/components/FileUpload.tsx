@@ -1,5 +1,5 @@
 import React, { useState, useRef, DragEvent, ChangeEvent } from 'react';
-import { UploadProgress } from '@/types/transaction.types';
+import { UploadProgress } from '../types/transaction.types';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;

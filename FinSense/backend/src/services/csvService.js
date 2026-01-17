@@ -434,12 +434,9 @@ class CSVService {
         originalDescription: descriptionValue.trim(),
         source: 'csv_upload',
         importBatch: importBatch
-      },
-      category: {
-        name: null, // Will be set by ML categorization
-        confidence: 0,
-        isUserVerified: false
       }
+      // Note: category field is omitted to avoid MongoDB validation error
+      // It will be added later by ML categorization service
     };
   }
 

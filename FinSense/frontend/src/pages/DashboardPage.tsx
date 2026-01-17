@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import dashboardService, { DashboardData, TransactionStats } from '@/services/dashboard.service';
-import StatCard from '@/components/StatCard';
-import CategoryBreakdown from '@/components/CategoryBreakdown';
-import RecentTransactions from '@/components/RecentTransactions';
-import StressAlertBanner from '@/components/StressAlertBanner';
-import RecommendationCards from '@/components/RecommendationCards';
-import AlertList from '@/components/AlertList';
-import AlertThresholdSettings from '@/components/AlertThresholdSettings';
+import { useAuth } from '../contexts/AuthContext';
+import dashboardService, { DashboardData, TransactionStats } from '../services/dashboard.service';
+import StatCard from '../components/StatCard';
+import CategoryBreakdown from '../components/CategoryBreakdown';
+import RecentTransactions from '../components/RecentTransactions';
+import StressAlertBanner from '../components/StressAlertBanner';
+import RecommendationCards from '../components/RecommendationCards';
+import AlertList from '../components/AlertList';
+import AlertThresholdSettings from '../components/AlertThresholdSettings';
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();

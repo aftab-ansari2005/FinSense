@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -23,7 +23,13 @@ const LoginPage: React.FC = () => {
       await login({ email, password });
       navigate(from, { replace: true });
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      // Handle validation errors from backend
+      if (err.response?.data?.details && Array.isArray(err.response.data.details)) {
+        const errorMessages = err.response.data.details.map((detail: any) => detail.message).join('. ');
+        setError(errorMessages);
+      } else {
+        setError(err.response?.data?.message || err.response?.data?.error || 'Login failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

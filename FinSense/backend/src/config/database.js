@@ -16,12 +16,9 @@ class DatabaseConnection {
       const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/finsense';
       
       const options = {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
         maxPoolSize: 10, // Connection pooling
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,
-        bufferMaxEntries: 0,
         retryWrites: true,
         w: 'majority'
       };

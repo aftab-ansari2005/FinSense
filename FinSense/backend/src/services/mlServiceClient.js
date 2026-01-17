@@ -108,6 +108,12 @@ class MLServiceClient {
     this.timeout = options.timeout || parseInt(process.env.ML_SERVICE_TIMEOUT) || 30000;
     this.maxRetries = options.maxRetries || 3;
     this.retryDelay = options.retryDelay || 1000;
+    this.enabled = process.env.ML_SERVICE_ENABLED !== 'false';
+    
+    if (!this.enabled) {
+      logger.info('ML Service is disabled, client will not perform health checks');
+      return;
+    }
     
     // Create axios instance with connection pooling
     this.client = axios.create({
@@ -430,6 +436,10 @@ class MLServiceClient {
   }
 
   startHealthMonitoring() {
+    if (!this.enabled) {
+      return;
+    }
+    
     // Perform health check every 30 seconds
     setInterval(async () => {
       try {
@@ -446,9 +456,11 @@ class MLServiceClient {
 
   getServiceStats() {
     const circuitBreakerStats = {};
-    Object.keys(this.circuitBreakers).forEach(key => {
-      circuitBreakerStats[key] = this.circuitBreakers[key].getStats();
-    });
+    if (this.circuitBreakers) {
+      Object.keys(this.circuitBreakers).forEach(key => {
+        circuitBreakerStats[key] = this.circuitBreakers[key].getStats();
+      });
+    }
 
     return {
       baseURL: this.baseURL,
@@ -461,8 +473,10 @@ class MLServiceClient {
   }
 
   resetCircuitBreakers() {
-    Object.values(this.circuitBreakers).forEach(cb => cb.reset());
-    logger.info('All circuit breakers reset');
+    if (this.circuitBreakers) {
+      Object.values(this.circuitBreakers).forEach(cb => cb.reset());
+      logger.info('All circuit breakers reset');
+    }
   }
 
   // Batch operations for efficiency

@@ -178,26 +178,22 @@ router.post('/stress-score',
 
       logger.info(`Calculating stress score for user ${userId}`);
 
-      const mlRequest = async () => {
-        return await mlClient.post('/ml/stress-score', {
-          user_id: userId,
-          current_balance,
-          predictions,
-          transaction_history
-        });
-      };
-
-      const response = await mlCircuitBreaker.call(() => retryMLRequest(mlRequest));
+      const response = await mlClient.calculateStressScore(
+        userId, 
+        current_balance, 
+        predictions, 
+        transaction_history
+      );
       
       // Store stress score in database
       try {
         await FinancialStress.create({
           userId: req.userId,
-          stressScore: response.data.stress_score,
-          riskLevel: response.data.risk_level,
-          factors: response.data.factors,
-          recommendations: response.data.recommendations,
-          calculatedAt: new Date(response.data.calculated_at)
+          stressScore: response.stress_score,
+          riskLevel: response.risk_level,
+          factors: response.factors,
+          recommendations: response.recommendations,
+          calculatedAt: new Date(response.calculated_at)
         });
       } catch (dbError) {
         logger.warn('Failed to store stress score in database', { error: dbError.message });
@@ -205,22 +201,22 @@ router.post('/stress-score',
 
       logger.info(`Successfully calculated stress score`, {
         userId,
-        stressScore: response.data.stress_score,
-        riskLevel: response.data.risk_level,
-        alertsCount: response.data.alerts?.length || 0
+        stressScore: response.stress_score,
+        riskLevel: response.risk_level,
+        alertsCount: response.alerts?.length || 0
       });
 
       res.json({
         success: true,
-        stress_score: response.data.stress_score,
-        risk_level: response.data.risk_level,
-        factors: response.data.factors,
-        recommendations: response.data.recommendations,
-        alerts: response.data.alerts,
+        stress_score: response.stress_score,
+        risk_level: response.risk_level,
+        factors: response.factors,
+        recommendations: response.recommendations,
+        alerts: response.alerts,
         metadata: {
-          calculated_at: response.data.calculated_at,
-          alert_summary: response.data.alert_summary,
-          recommendation_summary: response.data.recommendation_summary
+          calculated_at: response.calculated_at,
+          alert_summary: response.alert_summary,
+          recommendation_summary: response.recommendation_summary
         }
       });
 
@@ -275,25 +271,19 @@ router.post('/learning/corrections',
 
       logger.info(`Submitting ${corrections.length} user corrections for learning`);
 
-      const mlRequest = async () => {
-        return await mlClient.post('/ml/learning/submit-correction', {
-          corrections: correctionsWithUserId
-        });
-      };
-
-      const response = await mlCircuitBreaker.call(() => retryMLRequest(mlRequest));
+      const response = await mlClient.submitLearningCorrections(correctionsWithUserId);
       
       logger.info(`Successfully submitted corrections`, {
         userId,
         correctionsCount: corrections.length,
-        learningResults: response.data.learning_results
+        learningResults: response.learning_results
       });
 
       res.json({
         success: true,
-        corrections_processed: response.data.corrections_processed,
-        learning_results: response.data.learning_results,
-        global_stats: response.data.global_stats
+        corrections_processed: response.corrections_processed,
+        learning_results: response.learning_results,
+        global_stats: response.global_stats
       });
 
     } catch (error) {
@@ -320,15 +310,11 @@ router.get('/learning/stats',
     try {
       const userId = req.userId.toString();
 
-      const mlRequest = async () => {
-        return await mlClient.get(`/ml/learning/stats/${userId}`);
-      };
-
-      const response = await mlCircuitBreaker.call(() => retryMLRequest(mlRequest));
+      const response = await mlClient.getUserLearningStats(userId);
       
       res.json({
         success: true,
-        user_stats: response.data.user_stats
+        user_stats: response.user_stats
       });
 
     } catch (error) {
@@ -357,16 +343,12 @@ router.get('/alerts',
     try {
       const userId = req.userId.toString();
 
-      const mlRequest = async () => {
-        return await mlClient.get(`/ml/alerts/${userId}`);
-      };
-
-      const response = await mlCircuitBreaker.call(() => retryMLRequest(mlRequest));
+      const response = await mlClient.getUserAlerts(userId);
       
       res.json({
         success: true,
-        alerts: response.data.active_alerts,
-        total_count: response.data.total_count
+        alerts: response.active_alerts,
+        total_count: response.total_count
       });
 
     } catch (error) {
@@ -396,15 +378,11 @@ router.post('/alerts/:alertId/acknowledge',
       const { alertId } = req.params;
       const userId = req.userId.toString();
 
-      const mlRequest = async () => {
-        return await mlClient.post(`/ml/alerts/${userId}/${alertId}/acknowledge`);
-      };
-
-      const response = await mlCircuitBreaker.call(() => retryMLRequest(mlRequest));
+      const response = await mlClient.acknowledgeAlert(userId, alertId);
       
       res.json({
         success: true,
-        message: response.data.message,
+        message: response.message,
         alert_id: alertId
       });
 
@@ -431,11 +409,7 @@ router.get('/recommendations',
     try {
       const userId = req.userId.toString();
 
-      const mlRequest = async () => {
-        return await mlClient.get(`/ml/recommendations/${userId}`);
-      };
-
-      const response = await mlCircuitBreaker.call(() => retryMLRequest(mlRequest));
+      const response = await mlClient.getUserRecommendations(userId);
       
       res.json({
         success: true,
@@ -473,18 +447,11 @@ router.put('/recommendations/:recommendationId/status',
       const { status, progress_note } = req.body;
       const userId = req.userId.toString();
 
-      const mlRequest = async () => {
-        return await mlClient.put(`/ml/recommendations/${userId}/${recommendationId}/status`, {
-          status,
-          progress_note
-        });
-      };
-
-      const response = await mlCircuitBreaker.call(() => retryMLRequest(mlRequest));
+      const response = await mlClient.updateRecommendationStatus(userId, recommendationId, status, progress_note);
       
       res.json({
         success: true,
-        message: response.data.message,
+        message: response.message,
         recommendation_id: recommendationId,
         new_status: status
       });
@@ -557,14 +524,10 @@ router.get('/dashboard',
       // 1. Get predictions if we have enough data
       if (balanceData.length >= 30) {
         promises.push(
-          mlCircuitBreaker.call(() => retryMLRequest(async () => {
-            return await mlClient.post('/ml/predict', {
-              user_id: userId.toString(),
-              balance_data: balanceData.slice(-60), // Use last 60 days
-              prediction_days: days,
-              include_confidence: true
-            });
-          })).catch(error => {
+          mlClient.generatePredictions(userId.toString(), balanceData.slice(-60), {
+            prediction_days: days,
+            include_confidence: true
+          }).catch(error => {
             logger.warn('Prediction failed in dashboard aggregation', { error: error.message });
             return null;
           })
@@ -578,14 +541,12 @@ router.get('/dashboard',
         Promise.resolve().then(async () => {
           if (balanceData.length >= 30) {
             try {
-              return await mlCircuitBreaker.call(() => retryMLRequest(async () => {
-                return await mlClient.post('/ml/stress-score', {
-                  user_id: userId.toString(),
-                  current_balance: runningBalance,
-                  predictions: balanceData.slice(-30).map(item => ({ predicted_balance: item.balance })),
-                  transaction_history: recentTransactions.slice(-30)
-                });
-              }));
+              return await mlClient.calculateStressScore(
+                userId.toString(),
+                runningBalance,
+                balanceData.slice(-30).map(item => ({ predicted_balance: item.balance })),
+                recentTransactions.slice(-30)
+              );
             } catch (error) {
               logger.warn('Stress score failed in dashboard aggregation', { error: error.message });
               return null;
@@ -597,9 +558,7 @@ router.get('/dashboard',
 
       // 3. Get alerts
       promises.push(
-        mlCircuitBreaker.call(() => retryMLRequest(async () => {
-          return await mlClient.get(`/ml/alerts/${userId}`);
-        })).catch(error => {
+        mlClient.getUserAlerts(userId).catch(error => {
           logger.warn('Alerts failed in dashboard aggregation', { error: error.message });
           return null;
         })
@@ -607,9 +566,7 @@ router.get('/dashboard',
 
       // 4. Get recommendations
       promises.push(
-        mlCircuitBreaker.call(() => retryMLRequest(async () => {
-          return await mlClient.get(`/ml/recommendations/${userId}`);
-        })).catch(error => {
+        mlClient.getUserRecommendations(userId).catch(error => {
           logger.warn('Recommendations failed in dashboard aggregation', { error: error.message });
           return null;
         })
@@ -621,15 +578,15 @@ router.get('/dashboard',
       const dashboardData = {
         transactions: recentTransactions.slice(-30), // Last 30 transactions
         balance_data: balanceData.slice(-30), // Last 30 days of balance
-        predictions: predictionsResponse?.data?.predictions || [],
-        stress_score: stressResponse?.data ? {
-          score: stressResponse.data.stress_score,
-          risk_level: stressResponse.data.risk_level,
-          factors: stressResponse.data.factors,
-          calculated_at: stressResponse.data.calculated_at
+        predictions: predictionsResponse?.predictions || [],
+        stress_score: stressResponse ? {
+          score: stressResponse.stress_score,
+          risk_level: stressResponse.risk_level,
+          factors: stressResponse.factors,
+          calculated_at: stressResponse.calculated_at
         } : null,
-        alerts: alertsResponse?.data?.active_alerts || [],
-        recommendations: recommendationsResponse?.data?.recommendations || [],
+        alerts: alertsResponse?.active_alerts || [],
+        recommendations: recommendationsResponse?.recommendations || [],
         metadata: {
           data_period_days: days,
           last_updated: new Date().toISOString(),

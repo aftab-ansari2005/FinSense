@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import FileUpload from '@/components/FileUpload';
-import transactionService from '@/services/transaction.service';
-import { UploadProgress, UploadResponse } from '@/types/transaction.types';
+import FileUpload from '../components/FileUpload';
+import transactionService from '../services/transaction.service';
+import { UploadProgress, UploadResponse } from '../types/transaction.types';
 
 const UploadPage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

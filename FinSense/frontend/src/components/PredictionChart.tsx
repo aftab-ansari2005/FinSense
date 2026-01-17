@@ -76,14 +76,33 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ data, loading }) => {
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const data = payload[0]?.payload;
+      
       return (
         <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200">
           <p className="font-semibold text-gray-900 mb-2">{formatDate(label)}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: {formatCurrency(entry.value)}
-            </p>
-          ))}
+          {payload.map((entry: any, index: number) => {
+            // Skip confidence range entries in tooltip
+            if (entry.dataKey === 'confidenceUpper' || entry.dataKey === 'confidenceLower') {
+              return null;
+            }
+            
+            return (
+              <p key={index} className="text-sm mb-1" style={{ color: entry.color }}>
+                {entry.name}: {formatCurrency(entry.value)}
+              </p>
+            );
+          })}
+          
+          {/* Show confidence interval if available */}
+          {data?.confidenceLower !== undefined && data?.confidenceUpper !== undefined && (
+            <div className="mt-2 pt-2 border-t border-gray-200">
+              <p className="text-xs text-gray-600 mb-1">95% Confidence Interval:</p>
+              <p className="text-xs text-gray-700">
+                {formatCurrency(data.confidenceLower)} - {formatCurrency(data.confidenceUpper)}
+              </p>
+            </div>
+          )}
         </div>
       );
     }
@@ -114,32 +133,37 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ data, loading }) => {
           iconType="line"
         />
         
-        {/* Confidence interval area */}
-        <Area
-          type="monotone"
-          dataKey="confidenceUpper"
-          stroke="none"
-          fill="#dbeafe"
-          fillOpacity={0.3}
-          name="Confidence Range"
-        />
-        <Area
-          type="monotone"
-          dataKey="confidenceLower"
-          stroke="none"
-          fill="#ffffff"
-          fillOpacity={1}
-        />
+        {/* Confidence interval area - only show if we have prediction data */}
+        {data.some(d => d.confidenceUpper !== undefined && d.confidenceLower !== undefined) && (
+          <>
+            <Area
+              type="monotone"
+              dataKey="confidenceUpper"
+              stroke="none"
+              fill="#dbeafe"
+              fillOpacity={0.4}
+              name="Confidence Range"
+            />
+            <Area
+              type="monotone"
+              dataKey="confidenceLower"
+              stroke="none"
+              fill="#ffffff"
+              fillOpacity={1}
+            />
+          </>
+        )}
         
         {/* Actual balance line */}
         <Line
           type="monotone"
           dataKey="actualBalance"
           stroke="#10b981"
-          strokeWidth={2}
-          dot={{ fill: '#10b981', r: 4 }}
+          strokeWidth={3}
+          dot={{ fill: '#10b981', r: 5, strokeWidth: 2, stroke: '#ffffff' }}
+          activeDot={{ r: 7, fill: '#10b981', strokeWidth: 2, stroke: '#ffffff' }}
           name="Actual Balance"
-          connectNulls
+          connectNulls={false}
         />
         
         {/* Predicted balance line */}
@@ -147,11 +171,12 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ data, loading }) => {
           type="monotone"
           dataKey="predictedBalance"
           stroke="#3b82f6"
-          strokeWidth={2}
-          strokeDasharray="5 5"
-          dot={{ fill: '#3b82f6', r: 4 }}
+          strokeWidth={3}
+          strokeDasharray="8 4"
+          dot={{ fill: '#3b82f6', r: 5, strokeWidth: 2, stroke: '#ffffff' }}
+          activeDot={{ r: 7, fill: '#3b82f6', strokeWidth: 2, stroke: '#ffffff' }}
           name="Predicted Balance"
-          connectNulls
+          connectNulls={false}
         />
       </ComposedChart>
     </ResponsiveContainer>
