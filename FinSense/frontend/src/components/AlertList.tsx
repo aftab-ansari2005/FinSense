@@ -30,7 +30,7 @@ const AlertList: React.FC<AlertListProps> = ({ alerts, onDismiss }) => {
 
   const getAlertConfig = (alert: Alert) => {
     const severity = alert.severity || alert.type || 'warning';
-    
+
     switch (severity) {
       case 'high':
       case 'danger':
@@ -106,10 +106,10 @@ const AlertList: React.FC<AlertListProps> = ({ alerts, onDismiss }) => {
 
   return (
     <div className="space-y-3">
-      <h3 className="text-lg font-semibold text-gray-900 mb-3">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-dark-text-primary mb-3">
         Active Alerts ({visibleAlerts.length})
       </h3>
-      
+
       {alerts.map((alert, index) => {
         if (dismissedAlerts.has(index)) return null;
 
@@ -139,7 +139,7 @@ const AlertList: React.FC<AlertListProps> = ({ alerts, onDismiss }) => {
                 <p className={`text-sm font-medium ${config.textColor}`}>
                   {message}
                 </p>
-                
+
                 {alert.timestamp && (
                   <p className={`text-xs ${config.textColor} opacity-75 mt-1`}>
                     {new Date(alert.timestamp).toLocaleString()}

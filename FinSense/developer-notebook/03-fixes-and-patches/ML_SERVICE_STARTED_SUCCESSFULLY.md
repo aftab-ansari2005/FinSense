@@ -42,7 +42,7 @@ The ML service has been successfully started and is now providing real predictio
 ### All Services Running
 1. **MongoDB**: Docker container (admin/password)
 2. **Backend**: http://localhost:5000 ✅
-3. **Frontend**: http://localhost:3002 ✅  
+3. **Frontend**: http://localhost:3000 ✅  
 4. **ML Service**: http://localhost:5001 ✅
 
 ### ML Service Capabilities
@@ -88,7 +88,7 @@ The ML service has been successfully started and is now providing real predictio
 ## Next Steps
 
 ### For Users
-1. **Access Frontend**: Navigate to http://localhost:3002
+1. **Access Frontend**: Navigate to http://localhost:3000
 2. **View Predictions**: Go to Predictions page to see real ML-generated forecasts
 3. **Upload Data**: Use CSV upload to add more transaction data
 4. **Dashboard**: View comprehensive financial insights

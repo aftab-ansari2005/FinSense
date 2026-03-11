@@ -1,0 +1,182 @@
+/* Dark Theme CSS Variables and Utilities */
+
+:root {
+  /* Light theme colors (default) */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-tertiary: #94a3b8;
+  --border-color: #e2e8f0;
+}
+
+.dark {
+  /* Dark theme colors */
+  --bg-primary: #0f0f0f;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #252525;
+  --bg-sidebar: #141414;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --text-tertiary: #666666;
+  --border-color: #2a2a2a;
+  --border-focus: #3a3a3a;
+}
+
+/* Body styles */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Custom scrollbar for dark theme */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #3a3a3a;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #4a4a4a;
+}
+
+/* Card components */
+.dark-card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.2s ease-in-out;
+}
+
+.dark-card:hover {
+  border-color: var(--border-focus);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* Input styles for dark theme */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #252525;
+  border: 1px solid #2a2a2a;
+  color: #ffffff;
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #3a3a3a;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(212, 255, 0, 0.1);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #666666;
+}
+
+/* Button utilities */
+.btn-primary {
+  background-color: #d4ff00;
+  color: #0f0f0f;
+  font-weight: 600;
+  padding: 0.75rem 2rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 12px rgba(212, 255, 0, 0.3);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-secondary {
+  background-color: #2a2a2a;
+  color: #ffffff;
+  font-weight: 500;
+  padding: 0.75rem 2rem;
+  border-radius: 0.5rem;
+  border: 1px solid #3a3a3a;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background-color: #3a3a3a;
+  border-color: #4a4a4a;
+}
+
+/* Table styles for dark theme */
+.dark table {
+  border-color: #2a2a2a;
+}
+
+.dark thead {
+  background-color: #1a1a1a;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.dark tbody tr {
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.dark tbody tr:hover {
+  background-color: #252525;
+}
+
+/* Alert/notification styles */
+.dark .alert-success {
+  background-color: rgba(0, 255, 136, 0.1);
+  border-color: #00ff88;
+}
+
+.dark .alert-warning {
+  background-color: rgba(255, 235, 59, 0.1);
+  border-color: #ffeb3b;
+}
+
+.dark .alert-danger {
+  background-color: rgba(255, 74, 107, 0.1);
+  border-color: #ff4a6b;
+}
+
+/* Percentage indicators */
+.percentage-positive {
+  color: #00ff88;
+}
+
+.percentage-negative {
+  color: #ff4a6b;
+}
+
+/* Smooth transitions */
+* {
+  transition-property: background-color, border-color, color;
+  transition-duration: 0.2s;
+  transition-timing-function: ease-in-out;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

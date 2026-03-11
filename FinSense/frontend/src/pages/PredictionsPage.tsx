@@ -28,7 +28,7 @@ const PredictionsPage: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const { historical, predictions, metrics: modelMetrics } = 
+      const { historical, predictions, metrics: modelMetrics } =
         await predictionService.getPredictions(selectedRange);
 
       // Combine historical and prediction data
@@ -72,11 +72,11 @@ const PredictionsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white dark:bg-dark-bg-secondary border border-gray-200 dark:border-dark-border-subtle rounded-xl p-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Financial Predictions</h1>
-            <p className="text-gray-600">View your 30-day balance forecasts and insights</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-dark-text-primary mb-2">Financial Predictions</h1>
+            <p className="text-gray-600 dark:text-dark-text-secondary">View your 30-day balance forecasts and insights</p>
           </div>
           <div className="mt-4 md:mt-0">
             <DateRangeSelector
@@ -116,10 +116,10 @@ const PredictionsPage: React.FC = () => {
       )}
 
       {/* Chart */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Balance Forecast</h2>
+      <div className="bg-white dark:bg-dark-bg-secondary border border-gray-200 dark:border-dark-border-subtle rounded-xl p-6 shadow-md">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-dark-text-primary mb-4">Balance Forecast</h2>
         <PredictionChart data={chartData} loading={loading} />
-        
+
         {/* Legend explanation */}
         {!loading && chartData.length > 0 && (
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">

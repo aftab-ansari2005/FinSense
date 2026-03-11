@@ -117,9 +117,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
       {/* Drag and Drop Zone */}
       <div
         className={`
-          relative border-2 border-dashed rounded-lg p-8 text-center transition-all
-          ${isDragging ? 'border-primary-500 bg-primary-50' : 'border-gray-300 bg-white'}
-          ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-primary-400'}
+          relative border-2 border-dashed rounded-xl p-8 text-center transition-all
+          ${isDragging ? 'border-accent-lime bg-accent-lime/10 dark:bg-accent-lime/5' : 'border-gray-300 dark:border-dark-border-subtle bg-white dark:bg-dark-bg-secondary'}
+          ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-accent-lime dark:hover:border-accent-lime/50'}
         `}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
@@ -155,21 +155,21 @@ const FileUpload: React.FC<FileUploadProps> = ({
             </div>
 
             <div>
-              <p className="text-lg font-medium text-gray-700 mb-2">
+              <p className="text-lg font-medium text-gray-700 dark:text-dark-text-primary mb-2">
                 {isDragging ? 'Drop your file here' : 'Drag and drop your CSV file here'}
               </p>
-              <p className="text-sm text-gray-500 mb-4">or</p>
+              <p className="text-sm text-gray-500 dark:text-dark-text-secondary mb-4">or</p>
               <button
                 type="button"
                 onClick={handleBrowseClick}
-                className="inline-flex items-center px-4 py-2 border border-primary-600 text-sm font-medium rounded-md text-primary-600 bg-white hover:bg-primary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                className="inline-flex items-center px-6 py-2.5 border-2 border-primary-600 dark:border-accent-lime text-sm font-semibold rounded-lg text-primary-600 dark:text-accent-lime bg-white dark:bg-transparent hover:bg-primary-50 dark:hover:bg-accent-lime/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-lime transition-all"
                 disabled={isUploading}
               >
                 Browse Files
               </button>
             </div>
 
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-dark-text-tertiary">
               CSV files only, max {maxSize}MB
             </p>
           </div>
@@ -200,14 +200,14 @@ const FileUpload: React.FC<FileUploadProps> = ({
                 <button
                   type="button"
                   onClick={handleUploadClick}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  className="inline-flex items-center px-6 py-2.5 text-sm font-semibold rounded-lg text-dark-bg-primary bg-accent-lime hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-lime transition-all shadow-sm"
                 >
                   Upload File
                 </button>
                 <button
                   type="button"
                   onClick={handleClearFile}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  className="inline-flex items-center px-6 py-2.5 border border-gray-300 dark:border-dark-border-subtle text-sm font-medium rounded-lg text-gray-700 dark:text-dark-text-primary bg-white dark:bg-dark-bg-tertiary hover:bg-gray-50 dark:hover:bg-dark-border-focus focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition-all"
                 >
                   Clear
                 </button>

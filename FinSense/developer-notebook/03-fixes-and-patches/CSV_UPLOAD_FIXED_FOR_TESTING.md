@@ -16,8 +16,8 @@ Modified `backend/src/services/csvService.js` to omit the `category` field entir
 ### Changes Made:
 1. **CSV Service Fix**: Removed the category field from transaction objects during CSV import
 2. **Backend Restart**: Restarted backend to pick up the changes
-3. **Frontend Port**: Updated frontend to run on port 3002 (3001 was occupied)
-4. **CORS Update**: Updated backend CORS configuration to allow requests from port 3002
+3. **Frontend Port**: Updated frontend to run on port 3000 (standard React port)
+4. **CORS Update**: Updated backend CORS configuration to allow requests from port 3000
 
 ## Testing Results
 ✅ **CSV Upload Test**: Successfully uploaded 5 transactions from `test-transactions.csv`
@@ -32,13 +32,13 @@ Modified `backend/src/services/csvService.js` to omit the `category` field entir
 
 ## Current Service Status
 - **Backend**: Running on http://localhost:5000 ✅
-- **Frontend**: Running on http://localhost:3002 ✅
+- **Frontend**: Running on http://localhost:3000 ✅
 - **MongoDB**: Running in Docker container ✅
 - **Authentication**: Disabled for testing (SKIP_AUTH=true) ✅
 
 ## Next Steps
 The CSV upload functionality is now working correctly. Users can:
-1. Navigate to http://localhost:3002
+1. Navigate to http://localhost:3000
 2. Go to the Upload page
 3. Upload CSV files with transaction data
 4. View uploaded transactions on the Transactions page
