@@ -1,0 +1,102 @@
+# ── Dependencies ─────────────────────────────────────────────
+node_modules/
+*/node_modules/
+**/.pnp
+.pnp.js
+
+# ── Environment variables (NEVER commit real secrets) ────────
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+ml-service/.env
+frontend/.env
+frontend/.env.local
+
+# ── Build outputs ─────────────────────────────────────────────
+build/
+dist/
+*/build/
+*/dist/
+frontend/build/
+.next/
+out/
+
+# ── Logs ──────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ── Runtime / process ─────────────────────────────────────────
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# ── Testing / Coverage ────────────────────────────────────────
+coverage/
+*.lcov
+.nyc_output/
+.pytest_cache/
+
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ── ML Models & data ──────────────────────────────────────────
+models/
+*.pkl
+*.joblib
+*.h5
+*.pb
+*.safetensors
+
+# ── Uploads / temp ────────────────────────────────────────────
+uploads/
+temp/
+tmp/
+
+# ── IDE & editors ─────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.kiro/
+
+# ── OS ────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ── Docker ────────────────────────────────────────────────────
+.dockerignore
+
+# ── Database ──────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Webpack / CRA cache ───────────────────────────────────────
+frontend/.cache/
+frontend/node_modules/.cache/
+
+# ── TypeScript ────────────────────────────────────────────────
+*.tsbuildinfo

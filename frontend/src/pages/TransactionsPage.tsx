@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import transactionsService, {
-  Transaction,
   TransactionFilters,
   PaginatedTransactions,
 } from '../services/transactions.service';
@@ -55,11 +54,6 @@ const TransactionsPage: React.FC = () => {
   const handleSearch = () => { setFilters({ ...filters, search: searchTerm }); setPage(1); };
   const handleCategoryFilter = (c: string) => { setSelectedCategory(c); setFilters({ ...filters, category: c || undefined }); setPage(1); };
   const handleClearFilters = () => { setSearchTerm(''); setSelectedCategory(''); setFilters({}); setPage(1); };
-
-  const handleUpdateCategory = async (id: string, cat: string) => {
-    try { await transactionsService.updateTransactionCategory(id, cat); fetchTransactions(); }
-    catch { alert('Failed to update category. Please try again.'); }
-  };
 
   const fmt = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
   const fmtDate = (s: string) => new Date(s).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });

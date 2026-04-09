@@ -92,13 +92,6 @@ const DashboardPage: React.FC = () => {
   const steps      = ['Dashboard', 'Upload\nTransactions', 'Review\nInsights', 'Predictions'];
   const activeStep = 1;
 
-  /* shared label style */
-  const inkLabel: React.CSSProperties = {
-    fontFamily: "'Lato', sans-serif",
-    fontSize: '10px', fontWeight: 700,
-    textTransform: 'uppercase', letterSpacing: '.14em',
-    color: '#9a7a50', margin: '0 0 10px',
-  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>

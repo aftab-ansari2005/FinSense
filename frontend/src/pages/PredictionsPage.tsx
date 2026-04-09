@@ -13,7 +13,6 @@ interface ChartDataPoint {
 }
 
 const inkText: React.CSSProperties = { fontFamily: "'Lato', sans-serif", color: '#1e1610' };
-const inkLabel: React.CSSProperties = { ...inkText, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.13em', color: '#9a7a50', margin: '0 0 8px' };
 
 const Section: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({ children, style }) => (
   <div className="paper-card-base paper-card-torn" style={{ borderRadius: '3px', padding: '22px 24px 32px', position: 'relative', ...style }}>
@@ -28,7 +27,8 @@ const PredictionsPage: React.FC = () => {
   const [chartData, setChartData]     = useState<ChartDataPoint[]>([]);
   const [metrics, setMetrics]         = useState<any>(null);
 
-  useEffect(() => { loadPredictions(); }, [selectedRange]);
+  useEffect(() => { loadPredictions(); }, [selectedRange]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const loadPredictions = async () => {
     setLoading(true); setError(null);
