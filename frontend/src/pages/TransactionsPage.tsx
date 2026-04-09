@@ -36,8 +36,8 @@ const TransactionsPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [categories, setCategories]           = useState<string[]>([]);
 
-  useEffect(() => { fetchCategories(); }, []);
-  useEffect(() => { fetchTransactions(); }, [page, filters]);
+  useEffect(() => { fetchCategories(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchTransactions(); }, [page, filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchCategories = async () => {
     try { setCategories(await transactionsService.getCategories()); }
