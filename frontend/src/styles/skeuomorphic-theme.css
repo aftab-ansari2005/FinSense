@@ -1,0 +1,266 @@
+/* ============================================================
+   FinSense — Skeuomorphic Theme
+   Wood desk + paper cards + cork board + handwritten fonts
+   ============================================================ */
+
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Lato:wght@300;400;700&display=swap');
+
+/* ── Root tokens ─────────────────────────────────────────── */
+:root {
+  --paper-cream: #f4ede0;
+  --paper-aged:  #ede3d0;
+  --ink-dark:    #1e1610;
+  --ink-mid:     #3a2e22;
+  --ink-faded:   #7a6652;
+  --ink-blue:    #2c4a6e;
+  --cork-light:  #c8963e;
+  --cork-mid:    #b07d2a;
+  --cork-dark:   #8a6020;
+}
+
+/* ── Wooden desk background ──────────────────────────────── */
+.wood-desk {
+  min-height: 100vh;
+  position: relative;
+
+  /* Layer 1: warm base */
+  background-color: #5c4033;
+
+  /* Layer 2: visible wood grain via hard repeating lines */
+  background-image:
+    /* coarse grain — dark stripes */
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0)       0px,
+      rgba(0, 0, 0, 0)        8px,
+      rgba(0, 0, 0, 0.12)     8px,
+      rgba(0, 0, 0, 0.12)     9px,
+      rgba(0, 0, 0, 0)        9px,
+      rgba(0, 0, 0, 0)       22px,
+      rgba(0, 0, 0, 0.07)    22px,
+      rgba(0, 0, 0, 0.07)    23px
+    ),
+    /* fine highlight lines */
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 200, 120, 0)      0px,
+      rgba(255, 200, 120, 0)     14px,
+      rgba(255, 200, 120, 0.06)  14px,
+      rgba(255, 200, 120, 0.06)  15px
+    ),
+    /* angled depth variation */
+    repeating-linear-gradient(
+      87deg,
+      rgba(0,0,0,0)         0px,
+      rgba(0,0,0,0)         38px,
+      rgba(0,0,0,0.06)      38px,
+      rgba(0,0,0,0.06)      39px
+    ),
+    /* warm base gradient */
+    linear-gradient(
+      175deg,
+      #7a5c44 0%,
+      #5c4033 25%,
+      #4a3224 55%,
+      #5c4033 78%,
+      #6b4c37 100%
+    );
+  overflow-x: hidden;
+}
+
+/* ── Paper card base ─────────────────────────────────────── */
+.paper-card {
+  background-color: var(--paper-cream);
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(180, 150, 100, 0),
+      rgba(180, 150, 100, 0) 27px,
+      rgba(180, 150, 100, 0.05) 28px
+    ),
+    linear-gradient(160deg, #f8f2e5 0%, #f0e8d4 50%, #ece0c8 100%);
+  border-radius: 4px;
+  box-shadow: 0 4px 18px rgba(60, 35, 10, 0.32),
+              0 1px 0 rgba(255, 250, 230, 0.6) inset;
+  position: relative;
+}
+
+/* Torn bottom using clip-path (no color dependency) */
+.paper-card-torn {
+  clip-path: polygon(
+    0% 0%,
+    100% 0%,
+    100% 88%,
+    98% 90%, 96% 87%, 94% 91%, 92% 88%,
+    90% 93%, 88% 89%, 86% 92%, 84% 87%,
+    82% 90%, 80% 86%, 78% 91%, 76% 88%,
+    74% 92%, 72% 87%, 70% 90%, 68% 86%,
+    66% 91%, 64% 87%, 62% 93%, 60% 88%,
+    58% 91%, 56% 87%, 54% 90%, 52% 85%,
+    50% 90%, 48% 87%, 46% 92%, 44% 88%,
+    42% 91%, 40% 86%, 38% 90%, 36% 87%,
+    34% 92%, 32% 88%, 30% 91%, 28% 86%,
+    26% 91%, 24% 88%, 22% 93%, 20% 88%,
+    18% 90%, 16% 86%, 14% 91%, 12% 87%,
+    10% 90%, 8% 93%, 6% 88%, 4% 91%,
+    2% 87%, 0% 90%
+  );
+}
+
+/* ── Navbar paper strip ──────────────────────────────────── */
+.navbar-paper {
+  background-color: #fdfaf2;
+  background-image: linear-gradient(180deg, #fefcf5 0%, #f5efe0 100%);
+  box-shadow:
+    0 3px 14px rgba(60, 35, 10, 0.32),
+    0 1px 0 rgba(200, 170, 100, 0.2);
+  border-bottom: 2px solid rgba(160, 120, 60, 0.18);
+  position: relative;
+  z-index: 50;
+}
+
+/* ── Cork board ──────────────────────────────────────────── */
+.cork-board {
+  background-color: var(--cork-light);
+  background-image:
+    radial-gradient(ellipse at 18% 28%, rgba(200,155,70,0.7)  0%, transparent 48%),
+    radial-gradient(ellipse at 72% 68%, rgba(150,110,45,0.65) 0%, transparent 48%),
+    radial-gradient(ellipse at 45% 50%, rgba(220,175,90,0.35) 0%, transparent 65%),
+    repeating-linear-gradient(
+      45deg,
+      rgba(0,0,0,0)          0px,
+      rgba(0,0,0,0)           4px,
+      rgba(0,0,0,0.04)        4px,
+      rgba(0,0,0,0.04)        5px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255,200,80,0)      0px,
+      rgba(255,200,80,0)      6px,
+      rgba(255,200,80,0.04)   6px,
+      rgba(255,200,80,0.04)   7px
+    );
+  border-radius: 6px;
+  border: 4px solid #7a5010;
+  box-shadow:
+    inset 0 3px 12px rgba(0,0,0,0.35),
+    inset 0 -2px 6px rgba(200,160,60,0.2),
+    0 6px 22px rgba(30,15,5,0.45);
+  position: relative;
+}
+
+/* ── Pushpin ─────────────────────────────────────────────── */
+.pushpin {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f8e080, #c89030 58%, #9a6e18);
+  box-shadow:
+    0 2px 5px rgba(0,0,0,0.55),
+    inset 0 1px 2px rgba(255, 240, 160, 0.5);
+  border: 1.5px solid #8a6010;
+  position: absolute;
+  z-index: 10;
+}
+
+/* ── Handwritten font ────────────────────────────────────── */
+.handwritten {
+  font-family: 'Caveat', cursive;
+  color: var(--ink-blue);
+  font-weight: 700;
+}
+
+/* ── Lime wooden button ──────────────────────────────────── */
+.btn-wood-lime {
+  font-family: 'Lato', sans-serif;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(0,0,0,0)       0px,
+      rgba(0,0,0,0)        5px,
+      rgba(0,0,0,0.04)     5px,
+      rgba(0,0,0,0.04)     6px
+    ),
+    linear-gradient(180deg, #9ac414 0%, #7dae0e 50%, #6a9a08 100%);
+  border-top: 2px solid #aad020;
+  border-bottom: 3px solid #5a8a04;
+  border-left: 1px solid #88b810;
+  border-right: 1px solid #88b810;
+  border-radius: 6px;
+  padding: 11px 20px;
+  box-shadow:
+    0 3px 8px rgba(80,120,0,0.38),
+    inset 0 1px 0 rgba(255,255,255,0.22);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  letter-spacing: 0.02em;
+}
+
+.btn-wood-lime:hover {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(0,0,0,0)       0px,
+      rgba(0,0,0,0)        5px,
+      rgba(0,0,0,0.04)     5px,
+      rgba(0,0,0,0.04)     6px
+    ),
+    linear-gradient(180deg, #aad020 0%, #9ac414 50%, #7dae0e 100%);
+  box-shadow: 0 5px 14px rgba(80,120,0,0.48);
+  transform: translateY(-1px);
+}
+
+.btn-wood-lime:active { transform: translateY(1px); }
+
+/* ── Natural wood button ─────────────────────────────────── */
+.btn-wood-natural {
+  font-family: 'Lato', sans-serif;
+  font-weight: 700;
+  color: #3a2e22;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(0,0,0,0)       0px,
+      rgba(0,0,0,0)        5px,
+      rgba(0,0,0,0.03)     5px,
+      rgba(0,0,0,0.03)     6px
+    ),
+    linear-gradient(180deg, #d4b890 0%, #c8a87a 50%, #b89060 100%);
+  border-top: 2px solid #dcc098;
+  border-bottom: 3px solid #a07848;
+  border-left: 1px solid #c0a070;
+  border-right: 1px solid #c0a070;
+  border-radius: 6px;
+  padding: 11px 20px;
+  box-shadow:
+    0 3px 8px rgba(80,50,10,0.32),
+    inset 0 1px 0 rgba(255,255,255,0.28);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.btn-wood-natural:hover {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(0,0,0,0)       0px,
+      rgba(0,0,0,0)        5px,
+      rgba(0,0,0,0.03)     5px,
+      rgba(0,0,0,0.03)     6px
+    ),
+    linear-gradient(180deg, #dcc098 0%, #d4b890 50%, #c8a87a 100%);
+  box-shadow: 0 5px 14px rgba(80,50,10,0.4);
+  transform: translateY(-1px);
+}
+
+.btn-wood-natural:active { transform: translateY(1px); }
+
+/* ── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: rgba(60,35,10,0.3); }
+::-webkit-scrollbar-thumb { background: #c8a87a; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #d4b890; }
