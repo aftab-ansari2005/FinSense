@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import dark theme */
+@import './styles/dark-theme.css';
+
+/* Import skeuomorphic theme */
+@import './styles/skeuomorphic-theme.css';
+
+body {
+  margin: 0;
+  font-family: 'Lato', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+
+code {
+  font-family: 'Space Grotesk', source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
