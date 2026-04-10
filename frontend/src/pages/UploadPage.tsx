@@ -5,6 +5,7 @@ import transactionService from '../services/transaction.service';
 import { UploadProgress, UploadResponse } from '../types/transaction.types';
 
 const inkText: React.CSSProperties = { fontFamily: "'Lato', sans-serif", color: '#1e1610' };
+const inkLabel: React.CSSProperties = { ...inkText, fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '.13em', color: '#9a7a50', margin: '0 0 8px' };
 
 const Section: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({ children, style }) => (
   <div className="paper-card-base paper-card-torn" style={{ borderRadius: '3px', padding: '22px 24px 32px', position: 'relative', ...style }}>
@@ -13,6 +14,7 @@ const Section: React.FC<{ children: React.ReactNode; style?: React.CSSProperties
 );
 
 const UploadPage: React.FC = () => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [isUploading, setIsUploading]   = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | undefined>();
   const [uploadError, setUploadError]   = useState<string | null>(null);
