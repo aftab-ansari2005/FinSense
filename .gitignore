@@ -63,6 +63,8 @@ models/
 *.h5
 *.pb
 *.safetensors
+!backend/src/models/
+!backend/src/models/*.js
 
 # ── Uploads / temp ────────────────────────────────────────────
 uploads/

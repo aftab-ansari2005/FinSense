@@ -7,13 +7,14 @@
  */
 
 const express = require('express');
-const { body, param, query, validationResult } = require('express-validator');
-const { authenticateToken, validateResourceOwnership } = require('../middleware/auth');
+const { body, param, validationResult } = require('express-validator');
+const { authenticateToken } = require('../middleware/auth');
 const { logger } = require('../config/logger');
 const { Transaction, FinancialStress } = require('../models');
 const { getMLServiceClient } = require('../services/mlServiceClient');
 const { getServiceDiscovery } = require('../services/serviceDiscovery');
 const { getConnectionManager } = require('../services/connectionPool');
+const demoData = require('../config/demoData');
 
 const router = express.Router();
 
@@ -186,17 +187,19 @@ router.post('/stress-score',
       );
       
       // Store stress score in database
-      try {
-        await FinancialStress.create({
-          userId: req.userId,
-          stressScore: response.stress_score,
-          riskLevel: response.risk_level,
-          factors: response.factors,
-          recommendations: response.recommendations,
-          calculatedAt: new Date(response.calculated_at)
-        });
-      } catch (dbError) {
-        logger.warn('Failed to store stress score in database', { error: dbError.message });
+      if (!demoData.isDemoMode()) {
+        try {
+          await FinancialStress.create({
+            userId: req.userId,
+            stressScore: response.stress_score,
+            riskLevel: response.risk_level,
+            factors: response.factors,
+            recommendations: response.recommendations,
+            calculatedAt: new Date(response.calculated_at)
+          });
+        } catch (dbError) {
+          logger.warn('Failed to store stress score in database', { error: dbError.message });
+        }
       }
 
       logger.info(`Successfully calculated stress score`, {
@@ -479,6 +482,10 @@ router.get('/dashboard',
   authenticateToken,
   async (req, res) => {
     try {
+      if (demoData.isDemoMode()) {
+        return res.json({ success: true, data: demoData.getDemoDashboardData(parseInt(req.query.days) || 30) });
+      }
+
       const userId = req.userId;
       const days = parseInt(req.query.days) || 30;
 

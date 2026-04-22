@@ -1,11 +1,12 @@
 const express = require('express');
 const { validationSets, validateDateRange } = require('../config/validation');
-const { authenticateToken, validateResourceOwnership } = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const { uploadSingle, cleanupOnError, validateUploadedFile } = require('../middleware/upload');
 const csvService = require('../services/csvService');
 const batchProcessor = require('../services/batchProcessor');
 const { Transaction } = require('../models');
 const { logger } = require('../config/logger');
+ const demoData = require('../config/demoData');
 
 const router = express.Router();
 
@@ -24,7 +25,15 @@ router.post('/upload/batch',
   async (req, res) => {
     try {
       const { file } = req;
-      
+
+      if (demoData.isDemoMode()) {
+        if (req.file) {
+          await csvService.cleanupFile(file.path);
+        }
+
+        return res.status(202).json(demoData.getDemoUploadResult(file?.originalname || 'demo-transactions.csv'));
+      }
+
       logger.info('Starting batch CSV processing', {
         userId: req.userId,
         filename: file.filename,
@@ -124,6 +133,11 @@ router.post('/upload/batch',
 router.get('/jobs/:jobId/status', async (req, res) => {
   try {
     const { jobId } = req.params;
+
+    if (demoData.isDemoMode()) {
+      return res.json(demoData.getDemoJobStatus(jobId));
+    }
+
     const status = batchProcessor.getJobStatus(jobId);
     
     if (!status) {
@@ -155,6 +169,11 @@ router.get('/jobs/:jobId/status', async (req, res) => {
 router.get('/jobs/:jobId/results', async (req, res) => {
   try {
     const { jobId } = req.params;
+
+    if (demoData.isDemoMode()) {
+      return res.json(demoData.getDemoJobResults(jobId));
+    }
+
     const results = batchProcessor.getJobResults(jobId);
     
     if (!results) {
@@ -196,6 +215,11 @@ router.get('/jobs/:jobId/results', async (req, res) => {
 router.post('/jobs/:jobId/cancel', async (req, res) => {
   try {
     const { jobId } = req.params;
+
+    if (demoData.isDemoMode()) {
+      return res.json({ success: true, message: 'Job cancelled successfully' });
+    }
+
     const cancelled = batchProcessor.cancelJob(jobId);
     
     if (!cancelled) {
@@ -226,6 +250,10 @@ router.post('/jobs/:jobId/cancel', async (req, res) => {
  */
 router.get('/jobs', async (req, res) => {
   try {
+    if (demoData.isDemoMode()) {
+      return res.json({ success: true, data: { jobs: [demoData.getDemoJobStatus().data], totalJobs: 1 } });
+    }
+
     const jobs = batchProcessor.getUserJobs(req.userId);
     
     res.json({
@@ -260,7 +288,15 @@ router.post('/upload',
 
     try {
       const { file } = req;
-      
+
+      if (demoData.isDemoMode()) {
+        if (req.file) {
+          await csvService.cleanupFile(file.path);
+        }
+
+        return res.status(201).json(demoData.getDemoUploadResult(file?.originalname || 'demo-transactions.csv'));
+      }
+
       logger.info('Starting CSV upload processing', {
         userId: req.userId,
         filename: file.filename,
@@ -357,7 +393,15 @@ router.post('/validate',
   async (req, res) => {
     try {
       const { file } = req;
-      
+
+      if (demoData.isDemoMode()) {
+        if (req.file) {
+          await csvService.cleanupFile(file.path);
+        }
+
+        return res.json(demoData.getDemoUploadValidation());
+      }
+
       // Validate CSV file
       const validationResult = await csvService.validateCSVFile(file.path);
       
@@ -414,6 +458,11 @@ router.get('/',
         sortBy = 'date',
         sortOrder = 'desc'
       } = req.query;
+
+      if (demoData.isDemoMode()) {
+        const result = demoData.getDemoTransactionPage({ page, limit, startDate, endDate, category, search, sortBy, sortOrder });
+        return res.json({ success: true, data: { transactions: result.transactions, pagination: result.pagination } });
+      }
 
       // Build query
       const query = { userId: req.userId };
@@ -475,6 +524,42 @@ router.get('/',
 );
 
 /**
+ * @route   GET /api/transactions/stats/summary
+ * @desc    Get transaction summary statistics
+ * @access  Private
+ */
+router.get('/stats/summary', async (req, res) => {
+  try {
+    if (demoData.isDemoMode()) {
+      return res.json({ success: true, data: demoData.getDemoTransactionStats() });
+    }
+
+    const stats = await Transaction.aggregate([
+      { $match: { userId: req.userId } },
+      { $group: { _id: '$category.name', totalAmount: { $sum: '$amount' }, count: { $sum: 1 }, avgAmount: { $avg: '$amount' } } },
+      { $sort: { totalAmount: -1 } }
+    ]);
+
+    const period = await Transaction.aggregate([
+      { $match: { userId: req.userId } },
+      { $group: { _id: null, start: { $min: '$date' }, end: { $max: '$date' } } }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        period: period[0] ? { start: period[0].start, end: period[0].end } : null,
+        categoryBreakdown: stats,
+        monthlyTrends: []
+      }
+    });
+  } catch (error) {
+    logger.error('Get transaction summary error:', error);
+    res.status(500).json({ error: 'Failed to retrieve transaction summary', message: 'Internal server error' });
+  }
+});
+
+/**
  * @route   GET /api/transactions/:id
  * @desc    Get single transaction
  * @access  Private
@@ -483,6 +568,19 @@ router.get('/:id',
   validationSets.objectIdParam,
   async (req, res) => {
     try {
+      if (demoData.isDemoMode()) {
+        const transaction = demoData.getDemoTransactionById(req.params.id);
+
+        if (!transaction) {
+          return res.status(404).json({
+            error: 'Transaction not found',
+            message: 'Transaction does not exist or you do not have access to it'
+          });
+        }
+
+        return res.json({ success: true, data: transaction });
+      }
+
       const transaction = await Transaction.findOne({
         _id: req.params.id,
         userId: req.userId
@@ -520,6 +618,29 @@ router.post('/',
   async (req, res) => {
     try {
       const { amount, description, date, category } = req.body;
+
+      if (demoData.isDemoMode()) {
+        return res.status(201).json({
+          success: true,
+          message: 'Transaction created successfully',
+          data: {
+            _id: `demo-manual-${Date.now()}`,
+            userId: req.userId,
+            amount,
+            description,
+            date: new Date(date).toISOString(),
+            category: {
+              name: category || null,
+              confidence: category ? 1.0 : 0,
+              isUserVerified: !!category
+            },
+            rawData: {
+              originalDescription: description,
+              source: 'manual_entry'
+            }
+          }
+        });
+      }
 
       const transaction = new Transaction({
         userId: req.userId,
@@ -578,7 +699,29 @@ router.put('/:id',
   async (req, res) => {
     try {
       const { amount, description, date, category } = req.body;
-      
+
+      if (demoData.isDemoMode()) {
+        const existing = demoData.getDemoTransactionById(req.params.id);
+        if (!existing) {
+          return res.status(404).json({
+            error: 'Transaction not found',
+            message: 'Transaction does not exist or you do not have access to it'
+          });
+        }
+
+        return res.json({
+          success: true,
+          message: 'Transaction updated successfully',
+          data: {
+            ...existing,
+            amount: amount !== undefined ? amount : existing.amount,
+            description: description !== undefined ? description : existing.description,
+            date: date !== undefined ? new Date(date).toISOString() : existing.date,
+            category: category !== undefined ? { name: category, confidence: 1.0, isUserVerified: true } : existing.category
+          }
+        });
+      }
+
       const updateData = {};
       if (amount !== undefined) updateData.amount = amount;
       if (description !== undefined) updateData.description = description;
@@ -642,6 +785,18 @@ router.delete('/:id',
   validationSets.objectIdParam,
   async (req, res) => {
     try {
+      if (demoData.isDemoMode()) {
+        const existing = demoData.getDemoTransactionById(req.params.id);
+        if (!existing) {
+          return res.status(404).json({
+            error: 'Transaction not found',
+            message: 'Transaction does not exist or you do not have access to it'
+          });
+        }
+
+        return res.json({ success: true, message: 'Transaction deleted successfully' });
+      }
+
       const transaction = await Transaction.findOneAndDelete({
         _id: req.params.id,
         userId: req.userId
@@ -684,7 +839,11 @@ router.get('/stats/summary',
   async (req, res) => {
     try {
       const { startDate, endDate } = req.query;
-      
+
+      if (demoData.isDemoMode()) {
+        return res.json({ success: true, data: demoData.getDemoTransactionStats() });
+      }
+
       // Default to last 30 days if no date range provided
       const end = endDate ? new Date(endDate) : new Date();
       const start = startDate ? new Date(startDate) : new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -719,7 +878,22 @@ router.get('/stats/summary',
 router.get('/imports/:batchId', async (req, res) => {
   try {
     const { batchId } = req.params;
-    
+
+    if (demoData.isDemoMode()) {
+      if (batchId !== 'demo-import-batch') {
+        return res.status(404).json({ error: 'Import batch not found', message: 'No transactions found for this import batch' });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          batchId,
+          transactions: demoData.getDemoTransactions().slice(0, 10),
+          stats: { mode: 'demo', processedCount: 10, errorCount: 0 }
+        }
+      });
+    }
+
     const transactions = await Transaction.find({
       userId: req.userId,
       'rawData.importBatch': batchId
@@ -759,6 +933,15 @@ router.get('/imports/:batchId', async (req, res) => {
  */
 router.get('/categories', async (req, res) => {
   try {
+    if (demoData.isDemoMode()) {
+      return res.json({
+        success: true,
+        data: {
+          categories: [...new Set(demoData.getDemoTransactions().map(transaction => transaction.category?.name).filter(Boolean))]
+        }
+      });
+    }
+
     const categories = await Transaction.distinct('category.name', {
       userId: req.userId,
       'category.name': { $ne: null, $exists: true }

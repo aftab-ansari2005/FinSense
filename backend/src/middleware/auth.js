@@ -1,24 +1,28 @@
 const jwt = require('jsonwebtoken');
 const { logger } = require('../config/logger');
 const { User } = require('../models');
+const { isDemoMode, DEMO_USER } = require('../config/demoData');
 
 /**
  * JWT Authentication Middleware
  */
 const authenticateToken = async (req, res, next) => {
+  if (isDemoMode()) {
+    req.user = { ...DEMO_USER, _id: DEMO_USER._id };
+    req.userId = DEMO_USER._id;
+    req.demoMode = true;
+    return next();
+  }
+
   // TEMPORARY: Skip authentication for testing
   if (process.env.NODE_ENV === 'development' && process.env.SKIP_AUTH === 'true') {
-    // Mock user for testing - using the actual user ID from database
     const mongoose = require('mongoose');
     const mockUserId = new mongoose.Types.ObjectId('696bc158153cde9b1edaae70');
-    
+
     req.user = {
       _id: mockUserId,
       email: 'test@example.com',
-      profile: {
-        firstName: 'Test',
-        lastName: 'User'
-      },
+      profile: { firstName: 'Test', lastName: 'User' },
       isActive: true
     };
     req.userId = mockUserId;
@@ -82,6 +86,12 @@ const authenticateToken = async (req, res, next) => {
  */
 const optionalAuth = async (req, res, next) => {
   try {
+    if (isDemoMode()) {
+      req.user = { ...DEMO_USER, _id: DEMO_USER._id };
+      req.userId = DEMO_USER._id;
+      return next();
+    }
+
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 

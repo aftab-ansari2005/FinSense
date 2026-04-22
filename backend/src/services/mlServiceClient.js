@@ -8,6 +8,17 @@
 
 const axios = require('axios');
 const { logger } = require('../config/logger');
+const {
+  isDemoMode,
+  getDemoCategorizationResponse,
+  getDemoPredictionResponse,
+  getDemoStressScoreResponse,
+  getDemoLearningStats,
+  getDemoAlerts,
+  getDemoRecommendations,
+  getDemoHealth,
+  getDemoServiceStats
+} = require('../config/demoData');
 
 class CircuitBreaker {
   constructor(options = {}) {
@@ -104,12 +115,24 @@ class CircuitBreaker {
 
 class MLServiceClient {
   constructor(options = {}) {
+    this.demoMode = isDemoMode();
     this.baseURL = options.baseURL || process.env.ML_SERVICE_URL || 'http://localhost:5001';
     this.timeout = options.timeout || parseInt(process.env.ML_SERVICE_TIMEOUT) || 30000;
     this.maxRetries = options.maxRetries || 3;
     this.retryDelay = options.retryDelay || 1000;
     this.enabled = process.env.ML_SERVICE_ENABLED !== 'false';
-    
+
+    if (this.demoMode) {
+      this.enabled = false;
+      this.healthStatus = {
+        isHealthy: true,
+        lastHealthCheck: new Date().toISOString(),
+        consecutiveFailures: 0,
+        responseTime: 0
+      };
+      return;
+    }
+
     if (!this.enabled) {
       logger.info('ML Service is disabled, client will not perform health checks');
       return;
@@ -233,6 +256,10 @@ class MLServiceClient {
   }
 
   async categorizeTransactions(userId, transactions, options = {}) {
+    if (this.demoMode) {
+      return getDemoCategorizationResponse(transactions);
+    }
+
     const context = 'categorize';
     const circuitBreaker = this.circuitBreakers[context];
     
@@ -254,6 +281,10 @@ class MLServiceClient {
   }
 
   async generatePredictions(userId, balanceData, options = {}) {
+    if (this.demoMode) {
+      return getDemoPredictionResponse(balanceData, options.predictionDays || 30);
+    }
+
     const context = 'predict';
     const circuitBreaker = this.circuitBreakers[context];
     
@@ -277,6 +308,10 @@ class MLServiceClient {
   }
 
   async calculateStressScore(userId, currentBalance, predictions, transactionHistory, options = {}) {
+    if (this.demoMode) {
+      return getDemoStressScoreResponse(currentBalance, predictions, transactionHistory);
+    }
+
     const context = 'stress';
     const circuitBreaker = this.circuitBreakers[context];
     
@@ -299,6 +334,18 @@ class MLServiceClient {
   }
 
   async submitLearningCorrections(corrections) {
+    if (this.demoMode) {
+      return {
+        corrections_processed: corrections.length,
+        learning_results: corrections.map(correction => ({
+          transaction_id: correction.transaction_id,
+          status: 'learned',
+          confidence_boost: 0.08
+        })),
+        global_stats: { demoMode: true, total_corrections: corrections.length }
+      };
+    }
+
     const context = 'learning';
     const circuitBreaker = this.circuitBreakers[context];
     
@@ -318,6 +365,10 @@ class MLServiceClient {
   }
 
   async getUserLearningStats(userId) {
+    if (this.demoMode) {
+      return getDemoLearningStats();
+    }
+
     const context = 'learning';
     const circuitBreaker = this.circuitBreakers[context];
     
@@ -335,6 +386,10 @@ class MLServiceClient {
   }
 
   async getUserAlerts(userId) {
+    if (this.demoMode) {
+      return getDemoAlerts();
+    }
+
     const context = 'alerts';
     const circuitBreaker = this.circuitBreakers[context];
     
@@ -352,6 +407,10 @@ class MLServiceClient {
   }
 
   async acknowledgeAlert(userId, alertId) {
+    if (this.demoMode) {
+      return { message: 'Alert acknowledged in demo mode', alert_id: alertId };
+    }
+
     const context = 'alerts';
     const circuitBreaker = this.circuitBreakers[context];
     
@@ -369,6 +428,10 @@ class MLServiceClient {
   }
 
   async getUserRecommendations(userId) {
+    if (this.demoMode) {
+      return getDemoRecommendations();
+    }
+
     const context = 'alerts';
     const circuitBreaker = this.circuitBreakers[context];
     
@@ -386,6 +449,15 @@ class MLServiceClient {
   }
 
   async updateRecommendationStatus(userId, recommendationId, status, progressNote) {
+    if (this.demoMode) {
+      return {
+        message: 'Recommendation status updated in demo mode',
+        recommendation_id: recommendationId,
+        status,
+        progress_note: progressNote || null
+      };
+    }
+
     const context = 'alerts';
     const circuitBreaker = this.circuitBreakers[context];
     
@@ -406,6 +478,17 @@ class MLServiceClient {
   }
 
   async checkHealth() {
+    if (this.demoMode) {
+      this.healthStatus = {
+        isHealthy: true,
+        lastHealthCheck: new Date().toISOString(),
+        consecutiveFailures: 0,
+        responseTime: 0,
+        serviceData: getDemoHealth().ml_service_data
+      };
+      return getDemoHealth();
+    }
+
     const context = 'health';
     const circuitBreaker = this.circuitBreakers[context];
     
@@ -436,7 +519,7 @@ class MLServiceClient {
   }
 
   startHealthMonitoring() {
-    if (!this.enabled) {
+    if (!this.enabled || this.demoMode) {
       return;
     }
     
@@ -455,6 +538,10 @@ class MLServiceClient {
   }
 
   getServiceStats() {
+    if (this.demoMode) {
+      return getDemoServiceStats();
+    }
+
     const circuitBreakerStats = {};
     if (this.circuitBreakers) {
       Object.keys(this.circuitBreakers).forEach(key => {
@@ -473,6 +560,10 @@ class MLServiceClient {
   }
 
   resetCircuitBreakers() {
+    if (this.demoMode) {
+      return;
+    }
+
     if (this.circuitBreakers) {
       Object.values(this.circuitBreakers).forEach(cb => cb.reset());
       logger.info('All circuit breakers reset');
@@ -481,6 +572,15 @@ class MLServiceClient {
 
   // Batch operations for efficiency
   async batchRequest(requests) {
+    if (this.demoMode) {
+      return requests.map(request => ({
+        request,
+        success: true,
+        data: { demoMode: true, endpoint: request.endpoint, method: request.method },
+        error: null
+      }));
+    }
+
     const results = await Promise.allSettled(requests.map(async (request) => {
       const { method, endpoint, data, context } = request;
       

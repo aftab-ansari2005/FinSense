@@ -4,8 +4,10 @@ const { validationSets, validationRules, handleValidationErrors } = require('../
 const { authenticateToken } = require('../middleware/auth');
 const authService = require('../services/authService');
 const { logger } = require('../config/logger');
+const { isDemoMode, DEMO_USER, DEMO_TOKENS, DEMO_EMAIL, DEMO_PASSWORD } = require('../config/demoData');
 
 const router = express.Router();
+let demoUserState = JSON.parse(JSON.stringify(DEMO_USER));
 
 // Rate limiting for auth endpoints
 const authLimiter = rateLimit({
@@ -88,6 +90,22 @@ router.post('/login', authLimiter, validationSets.userLogin, async (req, res) =>
   try {
     const { email, password } = req.body;
 
+    if (isDemoMode()) {
+      if (email !== DEMO_EMAIL || password !== DEMO_PASSWORD) {
+        return res.status(401).json({ error: 'Authentication failed', message: 'Invalid demo credentials' });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Demo login successful',
+        data: {
+          user: demoUserState,
+          accessToken: DEMO_TOKENS.accessToken,
+          refreshToken: DEMO_TOKENS.refreshToken
+        }
+      });
+    }
+
     const result = await authService.login(email, password);
 
     res.json({
@@ -126,6 +144,18 @@ router.post('/refresh', async (req, res) => {
   try {
     const { refreshToken } = req.body;
 
+    if (isDemoMode()) {
+      if (refreshToken !== DEMO_TOKENS.refreshToken) {
+        return res.status(401).json({ error: 'Token refresh failed', message: 'Invalid demo refresh token' });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Token refreshed successfully',
+        data: { accessToken: DEMO_TOKENS.accessToken, user: demoUserState }
+      });
+    }
+
     if (!refreshToken) {
       return res.status(400).json({
         error: 'Bad request',
@@ -160,6 +190,10 @@ router.post('/refresh', async (req, res) => {
  */
 router.post('/logout', authenticateToken, async (req, res) => {
   try {
+    if (isDemoMode()) {
+      return res.json({ success: true, message: 'Logged out successfully' });
+    }
+
     // In a more sophisticated implementation, you might maintain a blacklist of tokens
     // For now, we rely on client-side token removal
     
@@ -186,6 +220,10 @@ router.post('/logout', authenticateToken, async (req, res) => {
  */
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
+    if (isDemoMode()) {
+      return res.json({ success: true, data: demoUserState });
+    }
+
     const profile = await authService.getProfile(req.userId);
 
     res.json({
@@ -210,6 +248,24 @@ router.get('/profile', authenticateToken, async (req, res) => {
 router.put('/profile', authenticateToken, validationSets.userProfileUpdate, async (req, res) => {
   try {
     const { firstName, lastName, currency, alertThreshold } = req.body;
+
+    if (isDemoMode()) {
+      demoUserState = {
+        ...demoUserState,
+        profile: {
+          ...demoUserState.profile,
+          firstName: firstName ?? demoUserState.profile.firstName,
+          lastName: lastName ?? demoUserState.profile.lastName,
+          preferences: {
+            ...demoUserState.profile.preferences,
+            currency: currency ?? demoUserState.profile.preferences.currency,
+            alertThreshold: alertThreshold ?? demoUserState.profile.preferences.alertThreshold
+          }
+        }
+      };
+
+      return res.json({ success: true, message: 'Profile updated successfully', data: demoUserState });
+    }
 
     const updatedProfile = await authService.updateProfile(req.userId, {
       firstName,
@@ -253,6 +309,14 @@ router.post('/change-password', authenticateToken, [
   try {
     const { currentPassword, password: newPassword } = req.body;
 
+    if (isDemoMode()) {
+      if (currentPassword !== DEMO_PASSWORD) {
+        return res.status(400).json({ error: 'Password change failed', message: 'Current password is incorrect' });
+      }
+
+      return res.json({ success: true, message: 'Password changed successfully' });
+    }
+
     await authService.changePassword(req.userId, currentPassword, newPassword);
 
     res.json({
@@ -288,6 +352,10 @@ router.post('/forgot-password', passwordResetLimiter, [
   try {
     const { email } = req.body;
 
+    if (isDemoMode()) {
+      return res.json({ success: true, message: 'If the email exists, a reset link has been sent', resetToken: email === DEMO_EMAIL ? 'demo-reset-token' : undefined });
+    }
+
     const result = await authService.requestPasswordReset(email);
 
     res.json({
@@ -317,6 +385,15 @@ router.post('/reset-password', [
 ], async (req, res) => {
   try {
     const { resetToken, password } = req.body;
+
+    if (isDemoMode()) {
+      if (resetToken !== 'demo-reset-token') {
+        return res.status(400).json({ error: 'Password reset failed', message: 'Invalid or expired reset token' });
+      }
+
+      demoUserState = JSON.parse(JSON.stringify(DEMO_USER));
+      return res.json({ success: true, message: 'Password reset successfully' });
+    }
 
     await authService.resetPassword(resetToken, password);
 
@@ -353,6 +430,10 @@ router.post('/verify-email', [
   try {
     const { token } = req.body;
 
+    if (isDemoMode()) {
+      return res.json({ success: true, message: 'Email verified successfully' });
+    }
+
     await authService.verifyEmail(token);
 
     res.json({
@@ -383,6 +464,10 @@ router.post('/verify-email', [
  */
 router.delete('/account', authenticateToken, async (req, res) => {
   try {
+    if (isDemoMode()) {
+      return res.json({ success: true, message: 'Account deactivated successfully' });
+    }
+
     await authService.deactivateAccount(req.userId);
 
     res.json({

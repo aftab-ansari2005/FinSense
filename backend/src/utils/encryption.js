@@ -18,19 +18,27 @@ class EncryptionService {
    */
   getMasterKey() {
     const envKey = process.env.ENCRYPTION_KEY;
-    
+    const isDemoMode = process.env.DEMO_MODE === 'true';
+    const isDevelopment = process.env.NODE_ENV === 'development';
+
     if (envKey) {
-      if (envKey.length !== 64) { // 32 bytes = 64 hex characters
-        throw new Error('ENCRYPTION_KEY must be 64 hex characters (32 bytes)');
+      if (envKey.length === 64) { // 32 bytes = 64 hex characters
+        return Buffer.from(envKey, 'hex');
       }
-      return Buffer.from(envKey, 'hex');
+
+      if (isDemoMode || isDevelopment) {
+        const key = crypto.randomBytes(this.keyLength);
+        logger.warn(`Ignoring invalid ENCRYPTION_KEY and generating a new key for ${isDemoMode ? 'demo mode' : 'development'}. Set a valid ENCRYPTION_KEY in production!`);
+        return key;
+      }
+
+      throw new Error('ENCRYPTION_KEY must be 64 hex characters (32 bytes)');
     }
     
-    // Generate a new key for development (should not be used in production)
-    if (process.env.NODE_ENV === 'development') {
+    // Generate a new key for development/demo (should not be used in production)
+    if (isDevelopment || isDemoMode) {
       const key = crypto.randomBytes(this.keyLength);
-      logger.warn('Generated new encryption key for development. Set ENCRYPTION_KEY in production!');
-      logger.warn(`Generated key: ${key.toString('hex')}`);
+      logger.warn(`Generated new encryption key for ${isDemoMode ? 'demo mode' : 'development'}. Set ENCRYPTION_KEY in production!`);
       return key;
     }
     
