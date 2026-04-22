@@ -16,6 +16,7 @@ const { isDemoMode } = require('./src/config/demoData');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const demoMode = isDemoMode();
 
 // Security middleware
 app.use(helmet());
@@ -58,7 +59,9 @@ const authLimiter = rateLimit({
   }
 });
 
-app.use(limiter);
+if (!demoMode) {
+  app.use(limiter);
+}
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -67,8 +70,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Logging middleware
 app.use(apiLogger);
 
-// API monitoring middleware
-app.use(apiMonitoringMiddleware);
+// API monitoring middleware (skip in demo mode to reduce hosted-env noise/failures)
+if (!demoMode) {
+  app.use(apiMonitoringMiddleware);
+}
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
@@ -101,7 +106,11 @@ const dataExportRoutes = require('./src/routes/dataExport');
 const dataDeletionRoutes = require('./src/routes/dataDeletion');
 const predictionUpdatesRoutes = require('./src/routes/predictionUpdates');
 
-app.use('/api/auth', authLimiter, authRoutes);
+if (demoMode) {
+  app.use('/api/auth', authRoutes);
+} else {
+  app.use('/api/auth', authLimiter, authRoutes);
+}
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/ml/models', mlModelRoutes);
 app.use('/api/ml', mlIntegrationRoutes);
