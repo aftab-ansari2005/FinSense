@@ -13,7 +13,8 @@ const DEMO_USER = {
 };
 
 function isDemoMode() {
-  return process.env.DEMO_MODE === 'true';
+  const value = String(process.env.DEMO_MODE || '').trim().replace(/^['"]|['"]$/g, '').toLowerCase();
+  return value === 'true' || value === '1' || value === 'yes' || value === 'on';
 }
 
 function clone(value) {
