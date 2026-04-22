@@ -1,6 +1,6 @@
-const bcrypt = require('bcryptjs');
 const { logger } = require('./logger');
 const models = require('../models');
+const { DEMO_USER_ID, DEMO_EMAIL } = require('./demoData');
 
 /**
  * Seed database with initial data for development/testing
@@ -18,7 +18,8 @@ async function seedDatabase() {
     
     // Create demo user
     const demoUser = new models.User({
-      email: 'demo@finsense.com',
+      _id: DEMO_USER_ID,
+      email: DEMO_EMAIL,
       passwordHash: 'DemoPassword123!',
       profile: {
         firstName: 'Demo',

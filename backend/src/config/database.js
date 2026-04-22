@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const { logger } = require('./logger');
 const { createIndexes } = require('./indexes');
 const { seedDatabase } = require('./seed');
+const { isDemoMode } = require('./demoData');
 
 class DatabaseConnection {
   constructor() {
@@ -13,6 +14,12 @@ class DatabaseConnection {
 
   async connect() {
     try {
+      if (isDemoMode()) {
+        logger.info('Demo mode enabled, skipping MongoDB connection');
+        this.connection = { demoMode: true, readyState: 1 };
+        return this.connection;
+      }
+
       const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/finsense';
       
       const options = {
@@ -50,7 +57,7 @@ class DatabaseConnection {
     }
   }
 
-  async handleConnectionFailure(error) {
+  async handleConnectionFailure(_error) {
     if (this.retryCount < this.maxRetries) {
       this.retryCount++;
       logger.info(`Retrying MongoDB connection (${this.retryCount}/${this.maxRetries}) in ${this.retryDelay}ms...`);
@@ -73,6 +80,12 @@ class DatabaseConnection {
   }
 
   async disconnect() {
+    if (isDemoMode()) {
+      logger.info('Demo mode enabled, skipping MongoDB disconnect');
+      this.connection = null;
+      return;
+    }
+
     if (this.connection) {
       await mongoose.disconnect();
       logger.info('MongoDB disconnected');
@@ -82,6 +95,10 @@ class DatabaseConnection {
   // Health check method
   async healthCheck() {
     try {
+      if (isDemoMode()) {
+        return { status: 'healthy', mode: 'demo', timestamp: new Date() };
+      }
+
       await mongoose.connection.db.admin().ping();
       return { status: 'healthy', timestamp: new Date() };
     } catch (error) {

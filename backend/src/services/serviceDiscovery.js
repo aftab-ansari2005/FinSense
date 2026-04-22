@@ -7,6 +7,7 @@
 
 const axios = require('axios');
 const { logger } = require('../config/logger');
+const { isDemoMode } = require('../config/demoData');
 
 class ServiceInstance {
   constructor(id, url, options = {}) {
@@ -172,12 +173,15 @@ class ServiceDiscovery {
     this.healthCheckInterval = options.healthCheckInterval || 30000; // 30 seconds
     this.healthCheckTimeout = options.healthCheckTimeout || 5000; // 5 seconds
     this.loadBalancer = new LoadBalancer(options.loadBalancingStrategy || 'least-connections');
-    
+    this.demoMode = isDemoMode();
+
     this.instances = new Map();
     this.healthCheckTimer = null;
     
     // Start health checking
-    this.startHealthChecking();
+    if (!this.demoMode) {
+      this.startHealthChecking();
+    }
   }
 
   registerInstance(id, url, options = {}) {
@@ -231,6 +235,12 @@ class ServiceDiscovery {
   }
 
   async checkInstanceHealth(instance) {
+    if (this.demoMode) {
+      instance.isHealthy = true;
+      instance.lastHealthCheck = new Date();
+      return;
+    }
+
     try {
       const startTime = Date.now();
       
@@ -274,6 +284,10 @@ class ServiceDiscovery {
   }
 
   startHealthChecking() {
+    if (this.demoMode) {
+      return;
+    }
+
     if (this.healthCheckTimer) {
       clearInterval(this.healthCheckTimer);
     }
@@ -343,6 +357,11 @@ class ServiceDiscovery {
 
   // Auto-discovery from environment variables or configuration
   autoDiscoverInstances() {
+    if (this.demoMode) {
+      logger.info('Demo mode enabled, skipping service discovery auto-registration');
+      return;
+    }
+
     // Check if ML service is enabled
     const mlServiceEnabled = process.env.ML_SERVICE_ENABLED !== 'false';
     

@@ -12,6 +12,7 @@ const { apiMonitoringMiddleware } = require('./src/services/apiMonitoring');
 const { getMonitoringDashboard } = require('./src/services/monitoringDashboard');
 const { getRealTimeUpdateService } = require('./src/services/realTimeUpdateService');
 const { getPredictionUpdateScheduler } = require('./src/services/predictionUpdateScheduler');
+const { isDemoMode } = require('./src/config/demoData');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -36,7 +37,7 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => {
+    skip: (_req) => {
     // Skip rate limiting in development mode
     if (isDevelopment) return true;
     // Skip rate limiting for health check
@@ -113,7 +114,7 @@ app.use('/api/prediction-updates', predictionUpdatesRoutes);
 app.use('/api/dashboard', (req, res) => res.json({ message: 'Dashboard routes - Coming soon' }));
 
 // Error handling middleware
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   logger.error('Unhandled error:', err);
   res.status(500).json({
     error: 'Internal server error',
@@ -164,10 +165,15 @@ async function startServer() {
     realTimeService.startHeartbeat();
 
     // Initialize and start prediction update scheduler
-    const predictionScheduler = getPredictionUpdateScheduler();
-    const cronSchedule = process.env.PREDICTION_UPDATE_CRON || '0 2 * * *'; // Default: 2 AM daily
-    predictionScheduler.start(cronSchedule);
-    logger.info(`Prediction update scheduler started with schedule: ${cronSchedule}`);
+    let predictionScheduler = null;
+    if (!isDemoMode()) {
+      predictionScheduler = getPredictionUpdateScheduler();
+      const cronSchedule = process.env.PREDICTION_UPDATE_CRON || '0 2 * * *'; // Default: 2 AM daily
+      predictionScheduler.start(cronSchedule);
+      logger.info(`Prediction update scheduler started with schedule: ${cronSchedule}`);
+    } else {
+      logger.info('Demo mode enabled, prediction update scheduler not started');
+    }
 
     realtimeWss.on('connection', (ws, req) => {
       // Extract token from query string or headers
@@ -201,12 +207,12 @@ async function startServer() {
     // Graceful shutdown handler for WebSocket and scheduler
     process.on('SIGTERM', () => {
       realTimeService.closeAllConnections();
-      predictionScheduler.stop();
+      if (predictionScheduler) predictionScheduler.stop();
     });
 
     process.on('SIGINT', () => {
       realTimeService.closeAllConnections();
-      predictionScheduler.stop();
+      if (predictionScheduler) predictionScheduler.stop();
     });
     
     // Start HTTP server
